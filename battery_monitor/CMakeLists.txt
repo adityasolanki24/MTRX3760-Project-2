@@ -22,15 +22,17 @@ add_executable(battery_monitor_node src/battery_monitor_node.cpp)
 ament_target_dependencies(battery_monitor_node rclcpp std_msgs nav_msgs)
 target_link_libraries(battery_monitor_node battery_lib)
 
-install(TARGETS battery_lib battery_monitor_node
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION lib/${PROJECT_NAME})
+install(TARGETS
+  battery_monitor_node
+  battery_lib
+  DESTINATION lib/${PROJECT_NAME})
 
-install(DIRECTORY include/
-  DESTINATION include)
-
-install(DIRECTORY launch/
-  DESTINATION share/${PROJECT_NAME}/launch)
+install(DIRECTORY
+  launch
+  include
+  DESTINATION share/${PROJECT_NAME})
 
 ament_package()
+
+
+
