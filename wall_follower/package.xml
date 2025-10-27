@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>wall_follower_c</name>
+  <name>wall_follower</name>
   <version>1.0.0</version>
   <description>Right-hand wall following algorithm in C++ for TurtleBot3</description>
   <maintainer email="user@todo.todo">Your Name</maintainer>

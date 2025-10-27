@@ -3,7 +3,7 @@
  * C++ implementation for ROS 2 with PID Control
  */
 
-#include "wall_follower_c/wall_follower.hpp"
+#include "wall_follower/wall_follower.hpp"
 
 #include <algorithm>
 #include <cmath>
