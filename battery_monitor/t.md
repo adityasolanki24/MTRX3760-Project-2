@@ -2,15 +2,13 @@
 
 ## 1. Overview
 
-The `battery_monitor` package is a ROS 2 C++ node that tracks and simulates the robot’s battery status.  
-It publishes the current battery percentage, detects low or critical levels, and logs messages accordingly.  
-The node can also publish a `/dock_request` message when the battery falls below a set threshold, so other modules (like navigation or motion control) can handle automatic docking.
+The `battery_monitor` package is a ROS 2 C++ node that tracks and simulates the robot’s battery status. It publishes the current battery percentage, detects low or critical levels, and logs messages accordingly. The node can also publish a `/dock_request` message when the battery falls below a set threshold, so other modules (like navigation or motion control) can handle automatic docking.
 
 This package is implemented in C++ and can be reused for both the “delivery” and “inspection” robot types in the Warehouse Robot project.
 
 ---
 
-## 2. Integration and Setup Instructions
+## 2. Adding the Package to the Team Workspace
 
 From your shared workspace:
 
@@ -21,11 +19,15 @@ cd ~/ros2_ws
 colcon build --merge-install
 source install/setup.bash
 ros2 pkg list | grep battery_monitor
-You should see battery_monitor listed among the installed packages.
-This confirms that the node has built successfully and can be launched from the workspace.
+You should see:
 
-3. Launch Integration
-To include this node in the system, add the following snippet to the project’s main launch file (for example, warehouse_robot.launch.py):
+nginx
+Copy code
+battery_monitor
+This confirms that the package has been successfully built and sourced.
+
+3. Including the Node in the Main Launch File
+To include this node in the system, add the following snippet to your main project launch file (for example warehouse_robot.launch.py):
 
 python
 Copy code
@@ -50,7 +52,7 @@ def generate_launch_description():
         battery_launch,
         # Add other nodes here (navigation, task manager, etc.)
     ])
-This ensures that the battery_monitor node launches automatically with all other system components.
+This ensures that the battery_monitor node is automatically launched with all other system components.
 
 4. Interaction with Other Nodes
 Node	Role	Communication
@@ -59,11 +61,10 @@ Node	Role	Communication
 /navigation_manager	Handles docking	Responds to /dock_request == true by moving to a charger pose
 /task_manager	Oversees jobs	Can read /battery_monitor/low_threshold to decide when to pause or stop jobs
 
-The battery_monitor runs independently and communicates through ROS 2 topics and parameters.
-Other nodes can use this data without requiring any code changes in their logic.
+The monitor operates independently and communicates through ROS 2 topics and parameters. Other nodes can easily subscribe to these topics without requiring code-level integration.
 
-5. Docking Integration
-To enable automatic docking when the battery is low, teammates can add this code to their motion or docking node:
+5. Example Docking Subscription (for Teammates)
+If the team wants to implement docking logic, they can add the following code snippet inside their motion or docking node:
 
 cpp
 Copy code
@@ -81,15 +82,18 @@ This ensures the docking node responds when the battery monitor issues a request
 To prepare your own package for integration with docking behaviour, make these edits:
 
 In include/battery_monitor/battery.hpp:
+
 cpp
 Copy code
 #include "std_msgs/msg/bool.hpp"
 rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr dock_pub_;
 In src/battery.cpp (inside the constructor):
+
 cpp
 Copy code
 dock_pub_ = this->create_publisher<std_msgs::msg::Bool>("/dock_request", 10);
 Inside the periodic update or check function:
+
 cpp
 Copy code
 if (battery_level_ <= low_threshold_) {
@@ -98,8 +102,7 @@ if (battery_level_ <= low_threshold_) {
     dock_pub_->publish(msg);
     RCLCPP_WARN(this->get_logger(), "Low battery detected. Dock request issued.");
 }
-This logic publishes a Boolean message whenever the battery level drops below the low-battery threshold.
-Other nodes can subscribe to /dock_request to handle docking automatically.
+This logic publishes a Boolean message whenever the battery level drops below the low-battery threshold. Other nodes can subscribe to /dock_request to handle docking automatically.
 
 7. Default Parameters and Launch Overrides
 Parameter	Default	Description
@@ -115,3 +118,6 @@ To override any parameters at runtime:
 bash
 Copy code
 ros2 launch battery_monitor battery_monitor.launch.py low_threshold:=25.0 base_drain_per_sec:=0.8
+Quick Run Summary
+bash
+Copy code
