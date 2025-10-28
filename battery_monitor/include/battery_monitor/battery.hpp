@@ -11,6 +11,10 @@
 #include <algorithm>
 #include <chrono>
 
+//dock_request for navigation node to subcscribe to
+//#include "std_msgs/msg/bool.hpp"
+//rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr dock_pub_;
+
 namespace bm {
 
 struct BatteryParams {
