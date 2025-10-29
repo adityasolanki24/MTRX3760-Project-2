@@ -1,4 +1,3 @@
-// src/aruco_pose_node.cpp
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
@@ -9,7 +8,7 @@
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
-#include <opencv2/calib3d.hpp> 
+#include <opencv2/calib3d.hpp>
 #include <cv_bridge/cv_bridge.hpp>
 
 #include <unordered_map>
@@ -18,50 +17,56 @@
 
 class ArucoPoseNode : public rclcpp::Node {
 public:
-  ArucoPoseNode() : Node("aruco_pose_node"),
-                    tf_broadcaster_(std::make_unique<tf2_ros::TransformBroadcaster>(*this)) {
-    // Parameters
-    marker_length_ = this->declare_parameter<double>("marker_length", 0.05); // meters
+  ArucoPoseNode() 
+    : Node("aruco_pose_node"),
+      tf_broadcaster_(std::make_unique<tf2_ros::TransformBroadcaster>(*this)) 
+  {
+    // --- Parameters ---
+    marker_length_ = this->declare_parameter<double>("marker_length", 0.05);
     camera_frame_  = this->declare_parameter<std::string>("camera_frame", "camera_optical_frame");
     publish_tf_    = this->declare_parameter<bool>("publish_tf", true);
     debug_image_   = this->declare_parameter<bool>("debug_image", true);
     pose_topic_base_ = this->declare_parameter<std::string>("pose_topic_base", "aruco/pose");
     std::string dict_name = this->declare_parameter<std::string>("dictionary", "DICT_5X5_50");
- 
-    RCLCPP_INFO(get_logger(),
-            "Param dictionary='%s' (declared default 5x5)",
-            this->get_parameter("dictionary").as_string().c_str());
-  
+
+    RCLCPP_INFO(get_logger(), "ArucoPoseNode initialized with marker_length=%.3f m, dictionary=%s",
+                marker_length_, dict_name.c_str());
+
     dict_   = getDictionaryByName(dict_name);
     params_ = cv::aruco::DetectorParameters::create();
 
-    // QoS: images + cam info are sensor streams
+    // QoS for image data
     auto sensor_qos = rclcpp::SensorDataQoS();
 
+    // --- Subscriptions ---
     cam_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-      "camera/camera_info", 10,
+      "/camera/camera_info", 10,
       [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr msg) {
         if (!have_camera_) {
-          // Copy K and D
+          // Store intrinsics
           K_ = cv::Mat(3, 3, CV_64F);
-          for (int i = 0; i < 9; ++i) K_.at<double>(i/3, i%3) = msg->k[i];
+          for (int i = 0; i < 9; ++i)
+            K_.at<double>(i / 3, i % 3) = msg->k[i];
+
           D_ = cv::Mat(static_cast<int>(msg->d.size()), 1, CV_64F);
-          for (size_t i = 0; i < msg->d.size(); ++i) D_.at<double>(static_cast<int>(i),0) = msg->d[i];
+          for (size_t i = 0; i < msg->d.size(); ++i)
+            D_.at<double>(static_cast<int>(i), 0) = msg->d[i];
+
           have_camera_ = true;
-          RCLCPP_INFO(get_logger(), "Camera intrinsics received (K,D).");
+          RCLCPP_INFO(get_logger(), "Camera calibration received (K,D). Frame: %s",
+                      msg->header.frame_id.c_str());
         }
       });
 
     image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
-      "camera/image_raw", sensor_qos,
+      "/camera/image_raw", sensor_qos,
       std::bind(&ArucoPoseNode::imageCb, this, std::placeholders::_1));
 
-    if (debug_image_) {
+    // --- Publishers ---
+    if (debug_image_)
       debug_img_pub_ = this->create_publisher<sensor_msgs::msg::Image>("aruco/debug_image", 10);
-    }
 
-    RCLCPP_INFO(get_logger(), "ArucoPoseNode up. marker_length=%.3f m, dict=%s",
-                marker_length_, dict_name.c_str());
+    RCLCPP_INFO(get_logger(), "ArucoPoseNode ready.");
   }
 
 private:
@@ -70,80 +75,72 @@ private:
     using namespace cv::aruco;
     static const std::unordered_map<std::string, PREDEFINED_DICTIONARY_NAME> lut = {
       {"DICT_4X4_50", DICT_4X4_50}, {"DICT_4X4_100", DICT_4X4_100},
-      {"DICT_4X4_250", DICT_4X4_250}, {"DICT_4X4_1000", DICT_4X4_1000},
       {"DICT_5X5_50", DICT_5X5_50}, {"DICT_5X5_100", DICT_5X5_100},
-      {"DICT_5X5_250", DICT_5X5_250}, {"DICT_5X5_1000", DICT_5X5_1000},
-      {"DICT_6X6_50", DICT_6X6_50}, {"DICT_6X6_100", DICT_6X6_100},
-      {"DICT_6X6_250", DICT_6X6_250}, {"DICT_6X6_1000", DICT_6X6_1000},
-      {"DICT_7X7_50", DICT_7X7_50}, {"DICT_7X7_100", DICT_7X7_100},
-      {"DICT_7X7_250", DICT_7X7_250}, {"DICT_7X7_1000", DICT_7X7_1000},
+      {"DICT_6X6_250", DICT_6X6_250}, {"DICT_7X7_1000", DICT_7X7_1000},
       {"DICT_ARUCO_ORIGINAL", DICT_ARUCO_ORIGINAL},
-      {"DICT_APRILTAG_16h5", DICT_APRILTAG_16h5},
-      {"DICT_APRILTAG_25h9", DICT_APRILTAG_25h9},
-      {"DICT_APRILTAG_36h10", DICT_APRILTAG_36h10},
-      {"DICT_APRILTAG_36h11", DICT_APRILTAG_36h11},
+      {"DICT_APRILTAG_36h11", DICT_APRILTAG_36h11}
     };
     auto it = lut.find(name);
-    return cv::aruco::getPredefinedDictionary(it == lut.end() ? cv::aruco::DICT_5X5_50 : it->second);
+    return cv::aruco::getPredefinedDictionary(it == lut.end() ? DICT_5X5_50 : it->second);
   }
 
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr getPosePublisherForId(int id) {
     auto it = pose_pubs_.find(id);
     if (it != pose_pubs_.end()) return it->second;
-
-    // Create a dedicated topic per marker id, e.g., aruco/pose/23
-    //std::string topic = pose_topic_base_ + "/" + std::to_string(id);
-    std::string topic = pose_topic_base_ + "/id_" + std::to_string(id); //aruco/pose/id_23
-
+    std::string topic = pose_topic_base_ + "/id_" + std::to_string(id);
     auto pub = this->create_publisher<geometry_msgs::msg::PoseStamped>(topic, 10);
     pose_pubs_.emplace(id, pub);
     RCLCPP_INFO(get_logger(), "Advertising pose topic: %s", topic.c_str());
     return pub;
   }
 
+  // --- Image callback ---
   void imageCb(const sensor_msgs::msg::Image::ConstSharedPtr& msg) {
-    if (!have_camera_) return;
+    if (!have_camera_ || K_.empty() || D_.empty()) {
+      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 3000, "Waiting for valid camera calibration...");
+      return;
+    }
 
     cv_bridge::CvImageConstPtr cv_ptr;
     try {
       cv_ptr = cv_bridge::toCvShare(msg, "bgr8");
     } catch (const cv_bridge::Exception& e) {
-      RCLCPP_WARN(get_logger(), "cv_bridge conversion failed: %s", e.what());
+      RCLCPP_ERROR(get_logger(), "cv_bridge conversion failed: %s", e.what());
       return;
     }
+
     cv::Mat frame = cv_ptr->image;
+    std::vector<int> ids;
+    std::vector<std::vector<cv::Point2f>> corners, rejected;
 
     // Detect markers
-    std::vector<std::vector<cv::Point2f>> corners;
-    std::vector<int> ids;
-    std::vector<std::vector<cv::Point2f>> rejected;
     cv::aruco::detectMarkers(frame, dict_, corners, ids, params_, rejected);
     if (ids.empty()) {
       if (debug_image_) {
-        // Optionally publish the raw image still
         auto out = cv_bridge::CvImage(msg->header, "bgr8", frame).toImageMsg();
         debug_img_pub_->publish(*out);
       }
       return;
     }
 
-    // Pose for each marker
+    // Draw markers
+    cv::aruco::drawDetectedMarkers(frame, corners, ids);
+
+    // Estimate poses (uses solvePnP internally)
     std::vector<cv::Vec3d> rvecs, tvecs;
     cv::aruco::estimatePoseSingleMarkers(corners, marker_length_, K_, D_, rvecs, tvecs);
 
     for (size_t i = 0; i < ids.size(); ++i) {
-      // Rodrigues to rotation matrix
       cv::Mat R_cv;
       cv::Rodrigues(rvecs[i], R_cv);
 
-      // Convert to tf2 quaternion
       tf2::Matrix3x3 R_tf(
         R_cv.at<double>(0,0), R_cv.at<double>(0,1), R_cv.at<double>(0,2),
         R_cv.at<double>(1,0), R_cv.at<double>(1,1), R_cv.at<double>(1,2),
         R_cv.at<double>(2,0), R_cv.at<double>(2,1), R_cv.at<double>(2,2));
       tf2::Quaternion q; R_tf.getRotation(q);
 
-      // PoseStamped (in camera optical frame)
+      // Pose message
       geometry_msgs::msg::PoseStamped pose_msg;
       pose_msg.header.stamp = msg->header.stamp;
       pose_msg.header.frame_id = camera_frame_;
@@ -152,15 +149,16 @@ private:
       pose_msg.pose.position.z = tvecs[i][2];
       pose_msg.pose.orientation = tf2::toMsg(q);
 
-      // Publish on per-id topic
+      // Publish pose
       getPosePublisherForId(ids[i])->publish(pose_msg);
       
+      // ---- NEW SECTION: compute and print distance ----
+      double distance = cv::norm(tvecs[i]);  // Euclidean distance in meters
       RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-      "ID %d  pos=[%.3f, %.3f, %.3f]  dist=%.3f m",
-      ids[i], tvecs[i][0], tvecs[i][1], tvecs[i][2], cv::norm(tvecs[i]));
+      "Marker ID %d | X: %.3f m | Y: %.3f m | Z: %.3f m | Distance: %.3f m",
+      ids[i], tvecs[i][0], tvecs[i][1], tvecs[i][2], distance);
 
-
-      // TF: camera_frame -> aruco_<id>
+      // Publish TF
       if (publish_tf_) {
         geometry_msgs::msg::TransformStamped T;
         T.header = pose_msg.header;
@@ -172,23 +170,15 @@ private:
         tf_broadcaster_->sendTransform(T);
       }
 
-      // Draw annotation for debugging
-      cv::aruco::drawDetectedMarkers(frame, corners, ids);
-      // Most OpenCV builds have either drawAxis (aruco) or drawFrameAxes (calib3d)
-      // Try aruco::drawAxis first:
+      // Draw coordinate axes
       try {
-        cv::drawFrameAxes(frame, K_, D_, rvecs[i], tvecs[i],
-                  static_cast<float>(marker_length_ * 0.5f), 2);
+        cv::drawFrameAxes(frame, K_, D_, rvecs[i], tvecs[i], marker_length_ * 0.5f);
       } catch (...) {
-        // Fallback if aruco::drawAxis is unavailable in your build
-        try {
-          cv::drawFrameAxes(frame, K_, D_, rvecs[i], tvecs[i], marker_length_ * 0.5);
-        } catch (...) {
-          // ignore
-        }
+        RCLCPP_DEBUG(get_logger(), "drawFrameAxes unavailable on this OpenCV build.");
       }
     }
 
+    // Publish debug overlay
     if (debug_image_) {
       auto out = cv_bridge::CvImage(msg->header, "bgr8", frame).toImageMsg();
       debug_img_pub_->publish(*out);
@@ -220,3 +210,4 @@ int main(int argc, char **argv) {
   rclcpp::shutdown();
   return 0;
 }
+
