@@ -16,6 +16,8 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include <queue>
+#include <mutex>
 
 class DeliveryCommander : public rclcpp::Node {
 private:
@@ -30,6 +32,8 @@ private:
     int current_target_tag_;
     std::string current_status_;
     int completed_deliveries_;
+    std::queue<int> pending_requests_;
+    std::mutex mtx_;
     
     // Delivery log
     std::string delivery_log_file_;
@@ -153,7 +157,7 @@ private:
             return;
         }
         
-        // Try to parse as ArUco tag ID
+        // Try to parse as ArUco tag ID (enqueue for sequential execution)
         try {
             int tag_id = std::stoi(command);
             
@@ -162,7 +166,13 @@ private:
                 return;
             }
             
-            sendDeliveryCommand(tag_id);
+            {
+                std::lock_guard<std::mutex> lock(mtx_);
+                pending_requests_.push(tag_id);
+                std::cout << "Queued delivery request for ArUco tag " << tag_id << "\n";
+            }
+            // If idle, start immediately
+            maybeStartNextRequest();
             
         } catch (const std::exception& e) {
             std::cout << "Unknown command: '" << command << "'. Type 'help' for commands.\n";
@@ -209,8 +219,13 @@ private:
                 logDeliveryEvent(current_target_tag_, "COMPLETED", 
                                "Successfully reached target");
                 
-                current_status_ = "IDLE";
-                current_target_tag_ = -1;
+                {
+                    std::lock_guard<std::mutex> lock(mtx_);
+                    current_status_ = "IDLE";
+                    current_target_tag_ = -1;
+                }
+                // Start next request if any
+                maybeStartNextRequest();
             }
         }
         else if (status.find("FAILED") != std::string::npos || 
@@ -222,8 +237,13 @@ private:
                 logDeliveryEvent(current_target_tag_, "FAILED", status);
             }
             
-            current_status_ = "IDLE";
-            current_target_tag_ = -1;
+            {
+                std::lock_guard<std::mutex> lock(mtx_);
+                current_status_ = "IDLE";
+                current_target_tag_ = -1;
+            }
+            // Start next request if any
+            maybeStartNextRequest();
         }
         else if (status.find("SEARCHING") != std::string::npos) {
             current_status_ = "SEARCHING";
@@ -240,6 +260,12 @@ private:
             std::cout << "Target Tag: None\n";
         }
         
+        size_t queue_size = 0;
+        {
+            std::lock_guard<std::mutex> lock(mtx_);
+            queue_size = pending_requests_.size();
+        }
+        std::cout << "Queued Requests: " << queue_size << "\n";
         std::cout << "Completed Deliveries: " << completed_deliveries_ << "\n\n";
     }
     
@@ -281,6 +307,26 @@ private:
         std::stringstream ss;
         ss << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S");
         return ss.str();
+    }
+
+    // Attempts to start the next queued request if the system is idle
+    void maybeStartNextRequest() {
+        int next_id = -1;
+        {
+            std::lock_guard<std::mutex> lock(mtx_);
+            if (current_status_ == "IDLE" && !pending_requests_.empty()) {
+                next_id = pending_requests_.front();
+                pending_requests_.pop();
+                // Mark as navigating before publishing to avoid races
+                current_status_ = "NAVIGATING";
+                current_target_tag_ = next_id;
+            }
+        }
+        if (next_id >= 0) {
+            // Publish outside lock
+            // Reuse sendDeliveryCommand for consistent logging and publishing
+            sendDeliveryCommand(next_id);
+        }
     }
 };
 
