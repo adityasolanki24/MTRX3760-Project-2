@@ -23,8 +23,8 @@ include_directories(
 )
 
 # C++ executable - Original wall follower
-add_executable(robot_drive_cpp src/wall_follower.cpp)
-ament_target_dependencies(robot_drive_cpp
+add_executable(wall_follower src/wall_follower.cpp)
+ament_target_dependencies(wall_follower
   rclcpp
   sensor_msgs
   geometry_msgs
@@ -32,18 +32,27 @@ ament_target_dependencies(robot_drive_cpp
 )
 
 # C++ executable - Home detection with ArUco
-add_executable(home_detection_cpp src/home_detection.cpp)
-ament_target_dependencies(home_detection_cpp
+add_executable(home_detection src/home_detection.cpp)
+ament_target_dependencies(home_detection
   rclcpp
   sensor_msgs
   geometry_msgs
   std_msgs
 )
 
+# C++ executable - Low battery homing
+add_executable(low_battery_homing src/low_battery_homing.cpp)
+ament_target_dependencies(low_battery_homing
+  rclcpp
+  std_msgs
+  geometry_msgs
+)
+
 # Install executables
 install(TARGETS
-  robot_drive_cpp
-  home_detection_cpp
+  wall_follower
+  home_detection
+  low_battery_homing
   DESTINATION lib/${PROJECT_NAME}
 )
 
