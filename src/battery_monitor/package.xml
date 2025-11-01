@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>battery_monitor</name>
+  <version>0.0.1</version>
+  <description>Virtual battery node with logging and dock alerts for MTRX3760 P2</description>
+  <maintainer email="ayesha@example.com">Ayesha Musarrat</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>nav_msgs</depend>
+
+  <export/>
+</package>

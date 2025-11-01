@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #ddd;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            grid-template-rows: auto 1fr;
+            gap: 15px;
+            padding: 20px;
+            height: 100vh;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #0f0;
+            font-size: 24px;
+            font-family: monospace;
+        }
+
+        .status-badge {
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .status-inspection { background: #10b981; }
+        .status-delivery { background: #3b82f6; }
+        .status-idle { background: #6b7280; }
+
+        .panel {
+            background: #2a2a2a;
+            border-radius: 5px;
+            padding: 15px;
+            border: 1px solid #444;
+            overflow-y: auto;
+        }
+
+        .panel h2 {
+            color: #0f0;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-family: monospace;
+            text-transform: uppercase;
+        }
+
+        .battery-display {
+            text-align: center;
+        }
+
+        .battery-bar {
+            width: 100%;
+            height: 40px;
+            background: #e5e7eb;
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+            margin: 10px 0;
+        }
+
+        .battery-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .battery-full { background: #10b981; }
+        .battery-medium { background: #f59e0b; }
+        .battery-low { background: #ef4444; }
+
+        .camera-panel {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .camera-view {
+            width: 100%;
+            height: 400px;
+            background: #000;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #0f0;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #444;
+        }
+
+        .camera-view img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .record-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .record-item {
+            background: #f3f4f6;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+
+        .record-item strong {
+            color: #667eea;
+        }
+
+        .log-panel {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        #terminal-output {
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 5px;
+            height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.6;
+            border: 1px solid #444;
+        }
+
+        .log-entry {
+            margin: 2px 0;
+        }
+
+        .log-info { color: #3b82f6; }
+        .log-success { color: #10b981; }
+        .log-warning { color: #f59e0b; }
+        .log-error { color: #ef4444; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat-box {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            border: 1px solid #444;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #0f0;
+            font-family: monospace;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 11px;
+            margin-top: 5px;
+            font-family: monospace;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .connected { background: #10b981; }
+        .disconnected { background: #ef4444; }
+
+        .control-panel {
+            grid-column: 3;
+            grid-row: 3;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .active {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ROBOT DASHBOARD</h1>
+            <div>
+                <span id="robot-mode" class="status-badge status-idle">IDLE</span>
+            </div>
+        </div>
+
+        <div class="panel camera-panel">
+            <h2>Camera Feed</h2>
+            <div class="camera-view" id="camera-view">
+                <span style="font-family: monospace; font-size: 14px;">No camera feed</span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Status</h2>
+            <div class="stat-box" style="margin-bottom: 10px;">
+                <div class="stat-label">Battery</div>
+                <div class="stat-value" id="battery-percent">0%</div>
+            </div>
+            <div class="stat-box" style="margin-bottom: 10px;">
+                <div class="stat-label">Damage Count</div>
+                <div class="stat-value" id="damage-count">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Deliveries</div>
+                <div class="stat-value" id="delivery-count">0</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Logs</h2>
+            <div id="terminal-output"></div>
+        </div>
+    </div>
+
+    <div id="connection-status" class="connection-status disconnected">
+        ● Disconnected
+    </div>
+
+    <script>
+        // Global state
+        let connected = false;
+        let bridgeActive = false;
+
+        // Connect to real ROS2 data
+        async function fetchRobotState() {
+            try {
+                const response = await fetch('http://localhost:8080/api/state');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateDisplay(data);
+                    
+                    if (!connected) {
+                        connected = true;
+                        document.getElementById('connection-status').textContent = '● Connected';
+                        document.getElementById('connection-status').classList.remove('disconnected');
+                        document.getElementById('connection-status').classList.add('connected');
+                    }
+                } else {
+                    if (connected) {
+                        connected = false;
+                        document.getElementById('connection-status').textContent = '● Disconnected';
+                        document.getElementById('connection-status').classList.remove('connected');
+                        document.getElementById('connection-status').classList.add('disconnected');
+                    }
+                }
+            } catch (error) {
+                if (connected) {
+                    connected = false;
+                    document.getElementById('connection-status').textContent = '● Disconnected';
+                    document.getElementById('connection-status').classList.remove('connected');
+                    document.getElementById('connection-status').classList.add('disconnected');
+                }
+            }
+        }
+
+        function updateDisplay(data) {
+            // Update robot mode
+            if (data.mode) {
+                const modeElem = document.getElementById('robot-mode');
+                modeElem.textContent = data.mode;
+                
+                if (data.mode === 'INSPECTION') {
+                    modeElem.className = 'status-badge status-inspection';
+                } else if (data.mode === 'DELIVERY') {
+                    modeElem.className = 'status-badge status-delivery';
+                } else {
+                    modeElem.className = 'status-badge status-idle';
+                }
+            }
+
+            // Update battery
+            if (data.battery !== undefined) {
+                const battery = data.battery;
+                document.getElementById('battery-percent').textContent = Math.round(battery) + '%';
+            }
+
+            // Update damage records
+            if (data.damage_count !== undefined) {
+                document.getElementById('damage-count').textContent = data.damage_count || '0';
+            }
+
+            // Update delivery records
+            if (data.delivery_count !== undefined) {
+                document.getElementById('delivery-count').textContent = data.delivery_count || '0';
+            }
+
+            // Update logs
+            if (data.logs) {
+                const terminal = document.getElementById('terminal-output');
+                terminal.innerHTML = '';
+                data.logs.forEach(log => {
+                    const entry = document.createElement('div');
+                    entry.className = 'log-entry';
+                    entry.textContent = log;
+                    terminal.appendChild(entry);
+                });
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+        }
+
+        // Update camera feed
+        function updateCamera() {
+            const cameraView = document.getElementById('camera-view');
+            // Check if we already have an img element
+            let img = cameraView.querySelector('img');
+            if (!img) {
+                img = document.createElement('img');
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'contain';
+                cameraView.innerHTML = '';
+                cameraView.appendChild(img);
+            }
+            // Update the image source with timestamp to prevent caching
+            img.src = 'http://localhost:8080/api/camera?' + new Date().getTime();
+            img.onerror = function() {
+                // If image fails to load, show "No camera feed" message
+                cameraView.innerHTML = '<span style="font-family: monospace; font-size: 14px;">No camera feed</span>';
+            };
+        }
+
+        // Initialize
+        function startDashboard() {
+            // Poll robot state every 500ms
+            setInterval(fetchRobotState, 500);
+            setInterval(updateCamera, 100);
+            
+            // Initial fetch
+            fetchRobotState();
+        }
+
+        window.onload = startDashboard;
+    </script>
+</body>
+</html>
+
