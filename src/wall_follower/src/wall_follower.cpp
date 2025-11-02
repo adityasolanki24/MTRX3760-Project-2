@@ -1,8 +1,3 @@
-/*
- * Right-Hand Wall Following Algorithm for Real TurtleBot3
- * C++ implementation for ROS 2 with PID Control
- */
-
 #include "wall_follower/wall_follower.hpp"
 
 #include <algorithm>
@@ -82,7 +77,6 @@ RightHandWallFollower::RightHandWallFollower()
   wall_found_(false),
   right_turn_counter_(0),
   aruco_stop_flag_(false),
-  control_mode_("GO"),
   last_scan_time_(this->now())
 {
     // Initialize PID controller for wall following
@@ -162,26 +156,6 @@ RightHandWallFollower::RangeData RightHandWallFollower::get_scan_ranges(
 
 void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 {
-    // Check control mode - if STOP or IDLE, don't follow wall
-    if (control_mode_ == "STOP") {
-        // Stop mode: exit function immediately, no movement
-        auto stop_cmd = geometry_msgs::msg::TwistStamped();
-        stop_cmd.header.stamp = this->now();
-        stop_cmd.header.frame_id = "base_link";
-        cmd_vel_pub_->publish(stop_cmd);
-        return;
-    }
-    
-    if (control_mode_ == "IDLE") {
-        // Idle mode: publish zero command but stay in callback loop (waiting for go)
-        auto idle_cmd = geometry_msgs::msg::TwistStamped();
-        idle_cmd.header.stamp = this->now();
-        idle_cmd.header.frame_id = "base_link";
-        cmd_vel_pub_->publish(idle_cmd);
-        return;
-    }
-    
-    // Control mode is "GO" - proceed with wall following
     // Get processed range data
     auto distances = get_scan_ranges(msg);
     
@@ -209,10 +183,10 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
         right_turn_counter_ = 0;  // Reset turn sequence counter
         RCLCPP_WARN(this->get_logger(), "EMERGENCY! Obstacle at %.2fm", distances.front);
     }
-    // PRIORITY 2: Obstacle ahead AND right wall - CORNER! Turn left SHARP
+    // PRIORITY 2: Obstacle ahead AND right wall - Sharp Turn left
     else if (distances.front < front_threshold_ && distances.right < side_threshold_) {
         state_ = "CORNER_LEFT";
-        cmd.twist.linear.x = 0.0;  // STOP completely - no forward motion for sharp turn
+        cmd.twist.linear.x = 0.0;  // STOP completely 
         cmd.twist.angular.z = corner_angular_speed_;
         wall_pid_->reset();  // Reset PID during corner turn
         right_turn_counter_ = 0;  // Reset turn sequence counter
@@ -220,7 +194,7 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
                    distances.front, distances.right);
         wall_found_ = true;
     }
-    // PRIORITY 3: Obstacle ahead - Turn left SHARP
+    // PRIORITY 3: Obstacle ahead - Sharp turn left
     else if (distances.front < front_threshold_) {
         state_ = "TURNING_LEFT";
         cmd.twist.linear.x = 0.0;  // STOP completely for sharp turn
@@ -240,25 +214,25 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
         RCLCPP_INFO(this->get_logger(), "Front-right obstacle (%.2fm) - Adjust left", distances.front_right);
         wall_found_ = true;
     }
-    // PRIORITY 5: Wall on right - Follow it using PID CONTROL
+    // PRIORITY 5: Wall on right - Follow with PID CONTROL
     else if (distances.right < side_threshold_) {
         wall_found_ = true;
         right_turn_counter_ = 0;  // Reset counter when wall is detected
         state_ = "FOLLOWING_PID";
         
-        // Calculate error: positive = too far, negative = too close
+        // Calculate error: positive = too far,negative = too close
         double error = distances.right - desired_wall_distance_;
         // Deadband (real robot wider due to noise)
         if (std::fabs(error) < 0.04) {
             error = 0.0;
         }
         
-        // Use PID to calculate angular velocity correction
+        // PID to calculate angular velocity correction
         double angular_correction = -wall_pid_->calculate(error, dt);  // Negative to turn toward wall
 
-        // Exponential smoothing and rate limiting to avoid jitter on hardware
+        // Exponential smoothing and rate limiting to avoid jitter
         static double prev_angular_cmd = 0.0;
-        const double alpha = 0.4;  // smoothing factor (0..1)
+        const double alpha = 0.4;  // smoothing factor
         double smoothed = alpha * angular_correction + (1.0 - alpha) * prev_angular_cmd;
         const double max_delta = 0.15;  // max change per cycle
         double delta = smoothed - prev_angular_cmd;
@@ -266,7 +240,7 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
         if (delta < -max_delta) smoothed = prev_angular_cmd - max_delta;
         prev_angular_cmd = smoothed;
         
-        // Set forward speed (reduce more aggressively if large correction needed)
+        // Set forward speed (reduce if large correction needed)
         double speed_factor = 1.0 - std::min(0.6, std::abs(angular_correction) / angular_speed_);
         speed_factor = std::clamp(speed_factor, 0.25, 1.0);
         cmd.twist.linear.x = linear_speed_ * speed_factor;
@@ -276,11 +250,11 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
             "PID Control: dist=%.2fm, error=%.3fm, angular=%.2f rad/s", 
             distances.right, error, angular_correction);
     }
-    // PRIORITY 6: No wall on right - Turn-Forward sequence
+    // PRIORITY 6: No wall on right - Turn-Forward-Turn sequence
     else {
         wall_pid_->reset();  // Reset PID when no wall detected
         
-        // If we've found a wall before, this is an opening - execute turn-forward sequence
+        // If we've found a wall before, execute turn-forward-turn sequence
         if (wall_found_) {
             // Phase 1: Turn right
             if (right_turn_counter_ < 8) {
@@ -329,36 +303,6 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
     
     // Publish velocity command
     cmd_vel_pub_->publish(cmd);
-}
-
-// ========== Control Mode Functions ==========
-
-void RightHandWallFollower::go()
-{
-    control_mode_ = "GO";
-    RCLCPP_INFO(this->get_logger(), "Wall follower GO - Starting wall following");
-}
-
-void RightHandWallFollower::stop()
-{
-    control_mode_ = "STOP";
-    // Immediately send stop command
-    auto stop_cmd = geometry_msgs::msg::TwistStamped();
-    stop_cmd.header.stamp = this->now();
-    stop_cmd.header.frame_id = "base_link";
-    cmd_vel_pub_->publish(stop_cmd);
-    RCLCPP_INFO(this->get_logger(), "Wall follower STOP - Exiting function, robot stopped");
-}
-
-void RightHandWallFollower::idle()
-{
-    control_mode_ = "IDLE";
-    // Send zero velocity command
-    auto idle_cmd = geometry_msgs::msg::TwistStamped();
-    idle_cmd.header.stamp = this->now();
-    idle_cmd.header.frame_id = "base_link";
-    cmd_vel_pub_->publish(idle_cmd);
-    RCLCPP_INFO(this->get_logger(), "Wall follower IDLE - Waiting for go instructions");
 }
 
 // ========== Main Function ==========

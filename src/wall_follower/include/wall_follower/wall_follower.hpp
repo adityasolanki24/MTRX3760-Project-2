@@ -1,7 +1,8 @@
-/*
- * Right-Hand Wall Following Algorithm for TurtleBot3
- * Header file with class declaration
- */
+//MTRX3760 2025 Project 2: Warehouse Robot DevKit
+//File: <Wall_follower.cpp>
+//Author(s): <Christopher Krsevan>
+//
+// <This node implements a right-hand wall following algorithm for a TurtleBot3 robot. It processes LiDAR data to detect walls in different directions (front, right, front-right) and uses a PID controller to smoothly maintain a 15cm distance from the right wall. The code follows a priority-based state machine: emergency stops for close obstacles, sharp left turns at corners or front obstacles, PID-controlled wall following when a right wall is detected, and a multi-phase turn-forward sequence (turn right → drive forward → turn right → seek wall) when an opening is detected. The PID control includes smoothing, and rate limiting to ensure stable, smooth navigation on real hardware.>
 
 #ifndef WALL_FOLLOWER_C__WALL_FOLLOWER_HPP_
 #define WALL_FOLLOWER_C__WALL_FOLLOWER_HPP_
@@ -17,14 +18,6 @@
 #include "tf2_ros/transform_listener.h"
 #include "tf2_ros/buffer.h"
 
-/**
- * @class RightHandWallFollower
- * @brief Implements right-hand wall following algorithm using LiDAR data
- * 
- * This node subscribes to laser scan data and publishes velocity commands
- * to follow the right wall at a target distance using a priority-based
- * decision system.
- */
 class RightHandWallFollower : public rclcpp::Node
 {
 public:
@@ -41,38 +34,38 @@ public:
 private:
     // ========== Control Parameters ==========
     
-    /// Linear speed for forward motion (m/s)
+    // Linear speed for forward motion (m/s)
     const double linear_speed_;
     
-    /// Angular speed for normal turns (rad/s)
+    // Angular speed for normal turns (rad/s)
     const double angular_speed_;
     
-    /// Angular speed for sharp corner turns (rad/s)
+    // Angular speed for sharp corner turns (rad/s)
     const double corner_angular_speed_;
     
     // ========== Distance Thresholds ==========
     
-    /// Target distance from right wall (m)
+    // Target distance from right wall
     const double desired_wall_distance_;
     
-    /// Stop if front obstacle closer than this (m)
+    // Stop if front obstacle closer than this
     const double front_threshold_;
     
-    /// Detect wall presence threshold (m)
+    // Detect wall presence threshold
     const double side_threshold_;
     
-    /// Emergency stop distance (m)
+    // Emergency stop distance
     const double min_obstacle_distance_;
     
-    /// Front-right corner clearance (m)
+    // Front-right corner clearance
     const double corner_clearance_;
     
     // ========== State Variables ==========
     
-    /// Current state of the robot
+    // Current state of the robot
     std::string state_;
     
-    /// Flag indicating if a wall has been found
+    /// Flag indicates if a wall has been found
     bool wall_found_;
     
     /// Counter for tracking right turn and forward motion sequence
@@ -80,9 +73,6 @@ private:
     
     /// Flag to stop robot when ArUco ID 0 is detected
     bool aruco_stop_flag_;
-    
-    /// Control mode state: "GO", "STOP", "IDLE"
-    std::string control_mode_;
     
     // ========== ROS 2 Objects ==========
     
@@ -199,23 +189,6 @@ private:
      * @return true if aruco_0 TF frame exists, false otherwise
      */
     bool is_aruco_id_0_detected();
-    
-    // ========== Public Control Methods ==========
-    
-    /**
-     * @brief Start wall following behavior
-     */
-    void go();
-    
-    /**
-     * @brief Stop robot and exit wall following
-     */
-    void stop();
-    
-    /**
-     * @brief Set robot to idle (waiting for go instructions, no movement)
-     */
-    void idle();
 };
 
 #endif  // WALL_FOLLOWER_C__WALL_FOLLOWER_HPP_
