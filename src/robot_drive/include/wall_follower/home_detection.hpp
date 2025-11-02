@@ -1,7 +1,6 @@
 // MTRX3760 2025 Project 2: Warehouse Robot DevKit 
 // File: <filename> 
-// Author(s): <author name> [, <author name> …] 
-// 
+// Author(s): Aditya Solanki
 // Homedetion Algorithm to return turtlebot to tag0 when job is complete
 
 
