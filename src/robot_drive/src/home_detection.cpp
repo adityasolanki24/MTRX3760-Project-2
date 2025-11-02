@@ -1,7 +1,10 @@
-/*
- * Right-Hand Wall Following Algorithm for Real TurtleBot3
- * C++ implementation for ROS 2 with PID Control and ArUco Detection
- */
+
+/ MTRX3760 2025 Project 2: Warehouse Robot DevKit 
+// File: home_detection.cpp 
+// Author(s): Aditya Solanki
+// 
+// Right-Hand Wall Following Algorithm for Real TurtleBot C++ implementation for ROS 2 with PID Control and ArUco Detection
+
 
 #include "wall_follower/home_detection.hpp"
 
