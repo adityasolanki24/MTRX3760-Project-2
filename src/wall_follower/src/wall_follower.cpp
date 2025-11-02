@@ -282,7 +282,7 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
         
         // If we've found a wall before, this is an opening - execute turn-forward sequence
         if (wall_found_) {
-            // Phase 1: Turn right (first 8 cycles)
+            // Phase 1: Turn right
             if (right_turn_counter_ < 8) {
                 state_ = "TURNING_RIGHT_OPENING";
                 cmd.twist.linear.x = 0.0;  // STOP while turning for sharp turn
@@ -290,7 +290,7 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
                 right_turn_counter_++;
                 RCLCPP_INFO(this->get_logger(), "Opening! Phase 1: Turning right (count: %d)", right_turn_counter_);
             }
-            // Phase 2: Drive forward (cycles 8-20)
+            // Phase 2: Drive forward
             else if (right_turn_counter_ < 20) {
                 state_ = "DRIVING_FORWARD_AFTER_TURN";
                 cmd.twist.linear.x = linear_speed_;  // Full speed forward
@@ -298,7 +298,7 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
                 right_turn_counter_++;
                 RCLCPP_INFO(this->get_logger(), "Opening! Phase 2: Driving forward (count: %d)", right_turn_counter_);
             }
-            // Phase 3: Turn right again (cycles 20-25)
+            // Phase 3: Turn right again
             else if (right_turn_counter_ < 25) {
                 state_ = "TURNING_RIGHT_SECOND";
                 cmd.twist.linear.x = 0.0;  // Stop while turning
@@ -306,7 +306,7 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
                 right_turn_counter_++;
                 RCLCPP_INFO(this->get_logger(), "Opening! Phase 3: Turning right again (count: %d)", right_turn_counter_);
             }
-            // Phase 4: Drive forward until wall detected (cycles 25+)
+            // Phase 4: Drive forward until wall detected
             else {
                 state_ = "SEEKING_WALL_FORWARD";
                 cmd.twist.linear.x = linear_speed_;  // Full speed forward
