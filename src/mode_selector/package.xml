@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>mode_selector</name>
+  <version>0.0.1</version>
+  <description>Launch selector for warehouse robot modes</description>
+  <maintainer email="raquel@example.com">Raquel Kampel</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+</package>
