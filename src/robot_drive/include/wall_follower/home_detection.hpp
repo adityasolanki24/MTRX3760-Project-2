@@ -1,7 +1,9 @@
-/*
- * Right-Hand Wall Following Algorithm for TurtleBot3 with ArUco Detection
- * Header file with class declaration
- */
+// MTRX3760 2025 Project 2: Warehouse Robot DevKit 
+// File: <filename> 
+// Author(s): <author name> [, <author name> …] 
+// 
+// Homedetion Algorithm to return turtlebot to tag0 when job is complete
+
 
 #ifndef HOME_DETECTION_HPP_
 #define HOME_DETECTION_HPP_
