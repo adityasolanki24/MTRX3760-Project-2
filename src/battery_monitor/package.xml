@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>battery_monitor</name>
+  <version>0.0.1</version>
+  <description>
+    A ROS2 node that simulates or reads the robot's battery percentage and publishes it to /battery/level.
+  </description>
+
+  <maintainer email="raquel.kampel@sydney.edu.au">Raquel Kampel</maintainer>
+  <license>MIT</license>
+
+  <!-- Core build dependency -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Package dependencies -->
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+
+  <!-- (Optional) dependencies for launch -->
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
+
