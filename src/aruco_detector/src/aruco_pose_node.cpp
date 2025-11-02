@@ -1,3 +1,10 @@
+/ MTRX3760 2025 Project 2: Warehouse Robot DevKit 
+// File: aruco_pose_node.cpp 
+// Author(s): Raquel Kampel
+// 
+// 3D drawing and position estimation of aruco node + file logging 
+
+
 // src/aruco_pose_node.cpp
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
