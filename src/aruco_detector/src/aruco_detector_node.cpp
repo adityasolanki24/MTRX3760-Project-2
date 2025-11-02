@@ -1,3 +1,9 @@
+/ MTRX3760 2025 Project 2: Warehouse Robot DevKit 
+// File: aruco_detector_node.cpp 
+// Author(s): Raquel Kampel
+// 
+// Only aruco detector 
+
 #include "aruco_detector/aruco_detector_node.hpp"
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <cv_bridge/cv_bridge.hpp>
