@@ -58,7 +58,7 @@ The system demonstrates a common development platform approach with shared funct
 - **Threshold**: 20% battery level
 
 #### 6. **Delivery Commander** (For Delivery Mode)
-- **Location**: `src/delivery_commander/src/delivery_commander.cpp`
+- **Location**: `src/mode_selector/src/delivery_robot.cpp`
 - **Function**: Manages delivery requests and waypoints using Navigation2
 - **Behavior**: Coordinates delivery routes, tracks multiple delivery requests, saves delivery logs
 
@@ -71,7 +71,7 @@ turtlebot3_ws/
 ├── src/
 │   ├── aruco_detector/          # ArUco marker detection
 │   ├── battery_monitor/         # Battery simulation and monitoring
-│   ├── delivery_commander/      # Delivery route management
+│   ├── mode_selector/           # Delivery and inspection robot management
 │   ├── robot_drive/             # Wall following algorithms
 │   │   ├── src/
 │   │   │   ├── wall_follower.cpp        # Pure wall following (mapping)
@@ -238,7 +238,7 @@ Default: 0.30 meters (30cm)
    # Or use existing map in turtlebot3_navigation2/map/
    ```
 
-2. **Delivery Commander** (if implemented): Manages delivery requests
+2. **Mode Selector**: Launches delivery robot with mapping and navigation capabilities
 
 ### Running Delivery Mode
 
@@ -260,11 +260,11 @@ ros2 launch turtlebot3_navigation2 navigation2.launch.py
 
 #### Step 4: Send Navigation Goals
 ```bash
-# Option A: Using RViz2
+# Using RViz2
 # - Use "2D Goal Pose" tool in RViz2 to set destination
-
-# Option B: Using command line (if delivery_commander is running)
-ros2 run delivery_commander delivery_commander
+# - Use "Publish Point" tool to navigate to a point
+# 
+# The delivery robot automatically subscribes to these goals and navigates to them
 ```
 
 ### Delivery Mode Features

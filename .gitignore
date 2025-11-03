@@ -32,6 +32,9 @@ Thumbs.db
 *.bak
 *.orig
 
+# Shell scripts
+*.sh
+
 # Turtlebot3 packages (should be installed separately)
 src/turtlebot3/
 src/turtlebot3_msgs/

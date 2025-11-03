@@ -1,6 +1,6 @@
 // MTRX3760 2025 Project 2: Warehouse Robot DevKit
 // File: delivery_robot.cpp
-// Author(s): Project Team
+// Author(s): Aditya Solanki
 //
 // Implementation of DeliveryRobot class - Navigation2-based delivery robot.
 
@@ -9,6 +9,13 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <ctime>
 #include <cstdlib>
+#include <thread>
+#include <chrono>
+#include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 using namespace std::chrono_literals;
 
@@ -28,6 +35,7 @@ DeliveryRobot::DeliveryRobot(bool mapping_mode)
       delivery_log_file_("/tmp/delivery_robot_log.txt"),
       mapping_mode_enabled_(mapping_mode),
       map_saved_(false),
+      saved_map_path_(""),
       nav2_ready_(false),
       mapping_start_time_(this->now())
 {
@@ -62,6 +70,8 @@ void DeliveryRobot::initialize()
         "target_aruco_tag", 10);
     delivery_status_pub_ = this->create_publisher<std_msgs::msg::String>(
         "delivery_status", 10);
+    initial_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
+        "initialpose", 10);
     
     // Subscribers
     nav_status_sub_ = this->create_subscription<std_msgs::msg::String>(
@@ -95,7 +105,7 @@ void DeliveryRobot::initialize()
         RCLCPP_INFO(this->get_logger(), "MAPPING MODE: Enabled");
         RCLCPP_INFO(this->get_logger(), "  - Wall follower will explore the maze autonomously");
         RCLCPP_INFO(this->get_logger(), "  - SLAM is building the map");
-        RCLCPP_INFO(this->get_logger(), "  - Map will be saved automatically after 5 minutes");
+        RCLCPP_INFO(this->get_logger(), "  - Map will be saved automatically after 3 minutes");
         RCLCPP_INFO(this->get_logger(), "  - Delivery functions disabled during mapping");
         RCLCPP_INFO(this->get_logger(), "  - Navigation2 will connect after map is saved");
         RCLCPP_INFO(this->get_logger(), "============================================================");
@@ -124,7 +134,7 @@ void DeliveryRobot::run()
     // Main loop runs via ROS 2 callbacks
     if (mapping_mode_enabled_) {
         // Mapping mode: wall follower is running separately
-        // Robot explores automatically, map saves after 5 minutes
+        // Robot explores automatically, map saves after 3 minutes
         RCLCPP_INFO(this->get_logger(), "Mapping mode active - wall follower is exploring maze");
         RCLCPP_INFO(this->get_logger(), "No delivery commands will be processed until map is saved and Nav2 is ready");
     } else {
@@ -463,23 +473,28 @@ void DeliveryRobot::checkMappingCompletion()
         return;
     }
     
-    // Check elapsed time (map after 5 minutes of exploration)
+    // Check elapsed time (map after 3 minutes of exploration)
     auto elapsed = this->now() - mapping_start_time_;
     auto elapsed_seconds = elapsed.seconds();
     
-    // Save map after 5 minutes (300 seconds) of exploration
+    // Save map after 3 minutes (180 seconds) of exploration
     // You can adjust this time or add more sophisticated completion detection
-    if (elapsed_seconds >= 300.0) {
+    if (elapsed_seconds >= 180.0) {
         RCLCPP_WARN(this->get_logger(), "============================================================");
         RCLCPP_WARN(this->get_logger(), "Mapping exploration time reached (%.0f seconds)", elapsed_seconds);
         RCLCPP_WARN(this->get_logger(), "Saving map automatically...");
         RCLCPP_WARN(this->get_logger(), "============================================================");
         
+        // Give a brief moment for any last updates
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        
         saveMap();
     } else {
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 60,
-            "Mapping in progress: %.0f seconds elapsed (will save after 300 seconds). "
+            "Mapping in progress: %.0f seconds elapsed (will save after 180 seconds). "
             "Wall follower is exploring the maze...", elapsed_seconds);
+        RCLCPP_DEBUG_THROTTLE(this->get_logger(), *this->get_clock(), 10,
+            "Make sure SLAM Toolbox is running and robot is moving to build the map");
     }
 }
 
@@ -499,13 +514,17 @@ void DeliveryRobot::saveMap()
     std::string map_file = std::string(getenv("HOME")) + "/my_map_" + time_str;
     
     // Save map using nav2_map_server
+    // Subscribe to /map topic and save to file
     std::string save_cmd = "ros2 run nav2_map_server map_saver_cli -f " + map_file;
+    
+    RCLCPP_INFO(this->get_logger(), "Saving map with command: %s", save_cmd.c_str());
     
     // Execute map save (this will block, but it's okay in a timer)
     int result = system(save_cmd.c_str());
     
     if (result == 0) {
         map_saved_ = true;
+        saved_map_path_ = map_file;  // Store the map path
         RCLCPP_WARN(this->get_logger(), "============================================================");
         RCLCPP_WARN(this->get_logger(), "MAP SAVED SUCCESSFULLY: %s", map_file.c_str());
         RCLCPP_WARN(this->get_logger(), "Map files: %s.pgm and %s.yaml", map_file.c_str(), map_file.c_str());
@@ -517,15 +536,102 @@ void DeliveryRobot::saveMap()
             mapping_completion_timer_.reset();
         }
         
-        // NOW connect to Navigation2 (after map is saved)
-        RCLCPP_INFO(this->get_logger(), "Map saved. Now connecting to Navigation2...");
+        // Stop wall follower - mapping is complete
+        RCLCPP_INFO(this->get_logger(), "Stopping wall follower - mapping complete");
+        system("pkill -f wall_follower");
         
-        // Start checking for Navigation2 in background (non-blocking)
-        connectToNavigation2();
+        RCLCPP_WARN(this->get_logger(), "============================================================");
+        RCLCPP_WARN(this->get_logger(), "MAPPING COMPLETE!");
+        RCLCPP_WARN(this->get_logger(), "Map saved: %s", map_file.c_str());
+        RCLCPP_WARN(this->get_logger(), "Wall follower stopped.");
+        RCLCPP_WARN(this->get_logger(), "Please choose next action from the menu.");
+        RCLCPP_WARN(this->get_logger(), "============================================================");
+        
+        // Do NOT auto-connect to Navigation2 - wait for user choice
     } else {
         RCLCPP_ERROR(this->get_logger(), "Failed to save map! Command: %s", save_cmd.c_str());
+        RCLCPP_ERROR(this->get_logger(), "Return code: %d", result);
         RCLCPP_ERROR(this->get_logger(), "Make sure nav2_map_server is installed and SLAM is running");
+        RCLCPP_ERROR(this->get_logger(), "Check if /map topic exists: ros2 topic list | grep map");
+        RCLCPP_ERROR(this->get_logger(), "Check if /map has data: ros2 topic echo /map --once");
     }
+}
+
+void DeliveryRobot::enableDeliveryMode()
+{
+    if (!map_saved_) {
+        RCLCPP_WARN(this->get_logger(), "Cannot enable delivery mode - map not saved yet");
+        return;
+    }
+    
+    // Initialize delivery log if not already done
+    if (!delivery_log_stream_.is_open()) {
+        initializeDeliveryLog();
+    }
+    
+    // Set initial pose for AMCL using last known position
+    // This is critical - AMCL needs an initial pose estimate to start localization
+    setInitialPoseFromOdometry();
+    
+    // Start connecting to Navigation2
+    connectToNavigation2();
+}
+
+void DeliveryRobot::setInitialPoseFromOdometry()
+{
+    // Try to get robot pose in map frame from TF first (if SLAM transform still exists)
+    double map_x, map_y, map_yaw;
+    bool got_map_pose = getRobotPoseInMap(map_x, map_y, map_yaw);
+    
+    // If TF transform doesn't exist yet, use odometry position as estimate
+    // This is okay because the robot should be roughly where it was when mapping stopped
+    if (!got_map_pose) {
+        RCLCPP_WARN(this->get_logger(), 
+            "Could not get robot pose in map frame from TF. Using odometry as initial estimate.");
+        map_x = robot_x_;
+        map_y = robot_y_;
+        map_yaw = robot_yaw_;
+    }
+    
+    // Create initial pose message for AMCL
+    geometry_msgs::msg::PoseWithCovarianceStamped initial_pose;
+    initial_pose.header.frame_id = "map";
+    initial_pose.header.stamp = this->now();
+    
+    // Set position
+    initial_pose.pose.pose.position.x = map_x;
+    initial_pose.pose.pose.position.y = map_y;
+    initial_pose.pose.pose.position.z = 0.0;
+    
+    // Set orientation (quaternion from yaw)
+    tf2::Quaternion q;
+    q.setRPY(0, 0, map_yaw);
+    initial_pose.pose.pose.orientation.x = q.x();
+    initial_pose.pose.pose.orientation.y = q.y();
+    initial_pose.pose.pose.orientation.z = q.z();
+    initial_pose.pose.pose.orientation.w = q.w();
+    
+    // Set covariance (position uncertainty)
+    // Diagonal covariance matrix - we're reasonably confident about position
+    // x, y: 0.25 m^2 uncertainty (0.5m std dev)
+    // z: small uncertainty
+    // orientation: 0.0685 rad^2 (~15 degrees std dev)
+    initial_pose.pose.covariance[0] = 0.25;   // x
+    initial_pose.pose.covariance[7] = 0.25;   // y
+    initial_pose.pose.covariance[35] = 0.0685; // yaw
+    
+    // Publish initial pose
+    initial_pose_pub_->publish(initial_pose);
+    
+    RCLCPP_WARN(this->get_logger(), "============================================================");
+    RCLCPP_WARN(this->get_logger(), "INITIAL POSE SET FOR AMCL");
+    RCLCPP_WARN(this->get_logger(), "  Position: (%.2f, %.2f)", map_x, map_y);
+    RCLCPP_WARN(this->get_logger(), "  Orientation: %.2f rad (%.1f deg)", map_yaw, map_yaw * 180.0 / M_PI);
+    RCLCPP_WARN(this->get_logger(), "  AMCL should now localize the robot on the map");
+    RCLCPP_WARN(this->get_logger(), "============================================================");
+    
+    // Wait a moment for AMCL to process the initial pose
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
 }
 
 void DeliveryRobot::connectToNavigation2()

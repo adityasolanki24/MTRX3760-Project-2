@@ -16,6 +16,7 @@
 #include <nav2_msgs/action/navigate_to_pose.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <tf2_ros/transform_listener.h>
@@ -93,6 +94,24 @@ public:
      * @param yaw Orientation (radians)
      */
     void navigateToPose(double x, double y, double yaw);
+    
+    /**
+     * @brief Check if mapping mode is complete
+     * @return true if mapping mode was enabled and map has been saved
+     */
+    bool isMappingComplete() const { return mapping_mode_enabled_ && map_saved_; }
+    
+    /**
+     * @brief Enable delivery mode after mapping is complete
+     * Initializes delivery log and starts connecting to Navigation2
+     */
+    void enableDeliveryMode();
+    
+    /**
+     * @brief Get the path to the saved map file
+     * @return Path to map file (without extension) or empty string if not saved
+     */
+    std::string getSavedMapPath() const { return saved_map_path_; }
 
 private:
     // ========== Navigation2 Integration ==========
@@ -113,6 +132,9 @@ private:
     
     /// Publisher for delivery status
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr delivery_status_pub_;
+    
+    /// Publisher for initial pose (for AMCL localization)
+    rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initial_pose_pub_;
     
     /// Subscriber for navigation status
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr nav_status_sub_;
@@ -168,6 +190,9 @@ private:
     /// Flag indicating map has been saved
     bool map_saved_;
     
+    /// Path to the saved map file (without extension)
+    std::string saved_map_path_;
+    
     /// Flag indicating Navigation2 is ready
     bool nav2_ready_;
     
@@ -179,6 +204,9 @@ private:
     
     /// Connect to Navigation2 after map is saved
     void connectToNavigation2();
+    
+    /// Set initial pose for AMCL using last known position from odometry
+    void setInitialPoseFromOdometry();
     
     // ========== Private Methods ==========
     
