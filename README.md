@@ -7,7 +7,7 @@ This project implements a **polymorphic warehouse robotics system** that emulate
 1. **Inspection Robot**: Uses camera, LiDAR, and odometry to detect and record damage sites (cracks) in the warehouse
 2. **Delivery Robot**: Uses LiDAR and odometry only to deliver packages between locations using Navigation2
 
-The system demonstrates a common development platform approach with shared functionality and specialized behaviors for different robot types.
+The system demonstrates a common development platform approach with shared functionality and specialized behaviors for different robot types. Both robot types are accessed through a unified **Mode Selector** interface that demonstrates polymorphism in action.
 
 ---
 
@@ -15,7 +15,46 @@ The system demonstrates a common development platform approach with shared funct
 
 ### Core Components
 
-#### 1. **ArUco Detector Node** (`aruco_pose_node`)
+#### 1. **Mode Selector** (`robot_mode_selector`) - Main Entry Point
+- **Location**: `src/mode_selector/src/robot_mode_selector.cpp`
+- **Function**: Unified interface for selecting and running different robot modes
+- **Features**:
+  - Interactive menu system for robot and mode selection
+  - Automatic launch of required nodes (SLAM, RViz, wall follower, etc.)
+  - Demonstrates polymorphism by using base class pointers
+  - Manages process lifecycle (launches and cleans up child processes)
+
+#### 2. **Base Robot** (`BaseRobot`) - Abstract Base Class
+- **Location**: `src/mode_selector/include/mode_selector/base_robot.hpp`
+- **Function**: Provides shared functionality for all robot types
+- **Shared Features**:
+  - Basic motion control (`publishVelocity`, `stopRobot`)
+  - Battery level monitoring and tracking
+  - Odometry subscription and pose tracking
+- **Virtual Interface**: `initialize()` and `run()` must be implemented by derived classes
+
+#### 3. **Inspection Robot** (`InspectionRobot`) - Derived Class
+- **Location**: `src/mode_selector/src/inspection_robot.cpp`
+- **Function**: Specialized robot for warehouse inspection tasks
+- **Features**:
+  - Camera-based ArUco marker detection for damage sites
+  - Right-hand wall following for exploration
+  - Damage site logging to disk
+  - Low battery homing to charging station (ArUco ID 0)
+  - PID-controlled wall following
+
+#### 4. **Delivery Robot** (`DeliveryRobot`) - Derived Class
+- **Location**: `src/mode_selector/src/delivery_robot.cpp`
+- **Function**: Specialized robot for package delivery tasks
+- **Features**:
+  - Navigation2 integration for path planning
+  - Mapping mode with automatic SLAM and map saving (3 minutes)
+  - Automatic initial pose setting from last known position
+  - Delivery request queue management
+  - RViz2 goal subscription (2D Goal Pose and Publish Point)
+  - Delivery logging to disk
+
+#### 5. **ArUco Detector Node** (`aruco_pose_node`)
 - **Location**: `src/aruco_detector/src/aruco_pose_node.cpp`
 - **Function**: Detects ArUco markers using the camera and publishes pose information
 - **Topics Published**: 
@@ -24,19 +63,19 @@ The system demonstrates a common development platform approach with shared funct
   - `/aruco/pose/id_N` (for other marker IDs)
 - **Output**: `geometry_msgs/PoseStamped` messages with marker position and distance from camera
 
-#### 2. **Battery Monitor Node** (`battery_monitor_node`)
+#### 6. **Battery Monitor Node** (`battery_monitor_node`)
 - **Location**: `src/battery_monitor/src/battery_monitor_node.cpp`
 - **Function**: Simulates and monitors virtual battery level
 - **Topics Published**: `/battery/level` (`std_msgs/Float32`)
 - **Topics Subscribed**: Monitors battery consumption based on robot activity
 
-#### 3. **Wall Follower** (`wall_follower`)
+#### 7. **Wall Follower** (`wall_follower`)
 - **Location**: `src/robot_drive/src/wall_follower.cpp`
 - **Function**: Pure right-hand wall following algorithm for autonomous exploration
 - **Use Case**: Mapping and SLAM - allows robot to roam around the maze to build maps
 - **Output**: Velocity commands to `/cmd_vel` (`geometry_msgs/TwistStamped`)
 
-#### 4. **Home Detection** (`home_detection`)
+#### 8. **Home Detection** (`home_detection`)
 - **Location**: `src/robot_drive/src/home_detection.cpp`
 - **Function**: Right-hand wall following with ArUco ID 1 detection for inspection mode
 - **Behavior**: 
@@ -46,7 +85,7 @@ The system demonstrates a common development platform approach with shared funct
   - Records damage locations for inspection reporting
 - **Parameters**: `aruco_stop_distance` (default: 0.30 meters)
 
-#### 5. **Low Battery Homing** (`low_battery_homing`)
+#### 9. **Low Battery Homing** (`low_battery_homing`)
 - **Location**: `src/robot_drive/src/low_battery_homing.cpp`
 - **Function**: Monitors battery level and navigates to charging station (ArUco ID 0) when battery < 20%
 - **Behavior**:
@@ -57,11 +96,6 @@ The system demonstrates a common development platform approach with shared funct
   - Re-enables wall following after docking
 - **Threshold**: 20% battery level
 
-#### 6. **Delivery Commander** (For Delivery Mode)
-- **Location**: `src/mode_selector/src/delivery_robot.cpp`
-- **Function**: Manages delivery requests and waypoints using Navigation2
-- **Behavior**: Coordinates delivery routes, tracks multiple delivery requests, saves delivery logs
-
 ---
 
 ## Project Structure
@@ -70,13 +104,35 @@ The system demonstrates a common development platform approach with shared funct
 turtlebot3_ws/
 ├── src/
 │   ├── aruco_detector/          # ArUco marker detection
+│   │   ├── src/
+│   │   │   ├── aruco_detector_node.cpp
+│   │   │   └── aruco_pose_node.cpp
+│   │   └── launch/
 │   ├── battery_monitor/         # Battery simulation and monitoring
-│   ├── mode_selector/           # Delivery and inspection robot management
+│   │   ├── src/
+│   │   │   ├── battery_monitor_node.cpp
+│   │   │   ├── battery.cpp
+│   │   │   └── logger.cpp
+│   │   └── launch/
+│   ├── mode_selector/           # Unified robot management (POLYMORPHIC)
+│   │   ├── src/
+│   │   │   ├── robot_mode_selector.cpp  # Main entry point
+│   │   │   ├── base_robot.cpp           # Abstract base class
+│   │   │   ├── inspection_robot.cpp     # Derived class
+│   │   │   └── delivery_robot.cpp       # Derived class
+│   │   ├── include/mode_selector/
+│   │   │   ├── base_robot.hpp
+│   │   │   ├── inspection_robot.hpp
+│   │   │   └── delivery_robot.hpp
+│   │   └── config/
+│   │       ├── mapping.rviz            # RViz config for mapping
+│   │       └── mapper_params_online_async.yaml  # SLAM configuration
 │   ├── robot_drive/             # Wall following algorithms
 │   │   ├── src/
 │   │   │   ├── wall_follower.cpp        # Pure wall following (mapping)
 │   │   │   ├── home_detection.cpp       # Inspection mode (ArUco detection)
-│   │   │   └── low_battery_homing.cpp   # Battery-aware navigation
+│   │   │   ├── low_battery_homing.cpp   # Battery-aware navigation
+│   │   │   └── maze_explorer.cpp        # Tremaux algorithm (unused)
 │   │   └── launch/
 │   │       └── low_battery_homing.launch.py
 │   └── turtlebot3_navigation2/   # Nav2 configuration for delivery mode
@@ -120,6 +176,25 @@ source install/setup.bash
 
 ## Running the Robot
 
+### Quick Start - Unified Interface
+
+The easiest way to use the system is through the **Mode Selector** interface:
+
+```bash
+# Build and source the workspace
+cd ~/turtlebot3_ws
+colcon build
+source install/setup.bash
+
+# Run the mode selector
+ros2 run mode_selector robot_mode_selector
+```
+
+This will present an interactive menu where you can:
+1. Choose robot type (Inspection or Delivery)
+2. Choose additional mode (Low Battery Homing, Home Detection, Wall Following, Mapping Mode, or None)
+3. The system automatically launches required nodes (SLAM, RViz, wall follower, ArUco detector, etc.)
+
 ### Setup (Required for all modes)
 
 1. **Set TurtleBot3 model**:
@@ -146,24 +221,37 @@ source install/setup.bash
 ### Overview
 - Robot uses **right-hand wall following** to explore the entire space
 - Camera detects ArUco markers (each ID represents a damage site)
-- When ArUco ID 1 is detected within 30cm, robot stops and records the location
+- When ArUco markers are detected within stop distance, robot stops and records the location
 - Battery monitoring ensures robot can return to charging station when needed
 - Damage records are saved to disk in human-readable format
 
 ### Running Inspection Mode
 
-#### Option A: Complete Inspection System (with battery monitoring)
+#### Recommended: Using Mode Selector (Unified Interface)
 ```bash
-ros2 launch robot_drive low_battery_homing.launch.py
+# Terminal 1: Robot hardware/simulation
+ros2 launch turtlebot3_bringup robot.launch.py
+
+# Terminal 2: Mode selector
+ros2 run mode_selector robot_mode_selector
 ```
 
-This launches:
-- `battery_monitor` - Virtual battery monitoring
-- `aruco_pose_node` - ArUco marker detection
-- `wall_follower` - Base wall following (can be replaced with `home_detection`)
-- `low_battery_homing` - Battery-aware navigation
+Then select:
+1. **Robot Type**: `1` (Inspection Robot)
+2. **Mode**: 
+   - `1` = Low Battery Homing (wall following + automatic homing when battery < 20%)
+   - `2` = Home Detection (wall following + ArUco damage detection)
+   - `3` = Wall Following (pure exploration)
+   - `4` = Mapping Mode (SLAM + wall following for map building)
 
-#### Option B: Inspection with Damage Detection
+The mode selector will automatically launch:
+- ArUco detector (if needed)
+- Battery monitor (if needed)
+- Wall follower
+- RViz2 (for mapping mode)
+- SLAM Toolbox (for mapping mode)
+
+#### Alternative: Manual Launch
 ```bash
 # Terminal 1: Robot hardware/simulation
 ros2 launch turtlebot3_bringup robot.launch.py
@@ -176,15 +264,6 @@ ros2 run robot_drive home_detection
 
 # Terminal 4 (Optional): Battery monitoring
 ros2 launch battery_monitor battery_monitor.launch.py
-```
-
-#### Option C: Mapping for Inspection
-```bash
-# For building maps before inspection
-ros2 run robot_drive wall_follower
-
-# Or with SLAM:
-ros2 launch turtlebot3_cartographer cartographer.launch.py
 ```
 
 ### Inspection Mode Parameters
@@ -225,54 +304,96 @@ Default: 0.30 meters (30cm)
 ### Overview
 - Robot uses **Navigation2** for path planning and obstacle avoidance
 - No camera required (LiDAR and odometry only)
-- Follows predefined delivery routes
+- **Mapping Mode**: Automatically builds map using SLAM and saves after 3 minutes
+- **Delivery Mode**: Navigates to destinations using saved maps
 - Tracks multiple delivery requests
 - Saves delivery records to disk
-
-### Prerequisites for Delivery Mode
-
-1. **Map Required**: You need a pre-built map of the warehouse
-   ```bash
-   # Build map first using SLAM
-   ros2 launch turtlebot3_cartographer cartographer.launch.py
-   # Or use existing map in turtlebot3_navigation2/map/
-   ```
-
-2. **Mode Selector**: Launches delivery robot with mapping and navigation capabilities
+- **Automatic Initial Pose**: Uses last known position from mapping to initialize localization
 
 ### Running Delivery Mode
 
 #### Step 1: Launch Robot
 ```bash
-# Terminal 1: Robot hardware
+# Terminal 1: Robot hardware/simulation
 ros2 launch turtlebot3_bringup robot.launch.py
 ```
 
-#### Step 2: Launch Navigation2
+#### Step 2: Launch Mode Selector
 ```bash
-# Terminal 2: Navigation2 stack
-ros2 launch turtlebot3_navigation2 navigation2.launch.py
+# Terminal 2: Mode selector
+ros2 run mode_selector robot_mode_selector
 ```
 
-#### Step 3: Set Initial Pose (in RViz2)
-- Open RViz2 (launched automatically with Nav2)
-- Use "2D Pose Estimate" tool to set robot's starting position on the map
+Select:
+1. **Robot Type**: `2` (Delivery Robot)
+2. **Mode**: `4` (Mapping Mode) - OR `5` (None) for delivery without mapping
 
-#### Step 4: Send Navigation Goals
-```bash
-# Using RViz2
-# - Use "2D Goal Pose" tool in RViz2 to set destination
-# - Use "Publish Point" tool to navigate to a point
-# 
-# The delivery robot automatically subscribes to these goals and navigates to them
-```
+#### Mapping Mode Workflow
+
+If you selected Mapping Mode:
+1. **Mapping Phase**:
+   - SLAM Toolbox launches automatically
+   - Wall follower launches and explores autonomously
+   - RViz2 opens with map visualization
+   - Robot explores for **3 minutes**
+   - Map is automatically saved to `~/my_map_YYYYMMDD_HHMMSS`
+   - Wall follower stops automatically
+
+2. **After Mapping Completes**:
+   - Menu appears with options:
+     - `1` = Start Delivery Mode (launches Navigation2 with saved map)
+     - `2` = Exit to Main Menu
+     - `3` = Exit Program
+
+3. **Delivery Phase** (if you chose option 1):
+   - Navigation2 launches with the saved map
+   - Initial pose is automatically set from last known position
+   - Robot is ready for navigation
+   - Use RViz2 tools to send goals:
+     - **"2D Goal Pose"** tool → sends navigation goal
+     - **"Publish Point"** tool → sends point to navigate to
+
+#### Direct Delivery Mode (Using Existing Map)
+
+If you selected "None" mode and have an existing map:
+
+1. **Launch Navigation2**:
+   ```bash
+   # Terminal 2: Navigation2 with your map
+   ros2 launch turtlebot3_navigation2 navigation2.launch.py map:=/path/to/your/map
+   ```
+
+2. **Launch Delivery Robot**:
+   ```bash
+   # Terminal 3: Delivery robot
+   ros2 run mode_selector robot_mode_selector
+   # Select: Delivery Robot, None mode
+   ```
+
+3. **Set Initial Pose**: Use "2D Pose Estimate" in RViz2
+
+4. **Send Navigation Goals**: Use RViz2 "2D Goal Pose" or "Publish Point"
 
 ### Delivery Mode Features
 
-- **Path Planning**: Nav2 computes optimal paths using the map
-- **Obstacle Avoidance**: Dynamic obstacle detection using LiDAR
-- **Route Management**: Can follow multiple waypoints in sequence
-- **Delivery Logging**: Records each delivery with timestamp and location
+- **Mapping Mode**: 
+  - Automatic SLAM initialization
+  - Autonomous exploration with wall follower
+  - Automatic map saving after 3 minutes
+  - Seamless transition to delivery mode
+  
+- **Navigation Features**:
+  - Navigation2 integration for path planning
+  - Automatic initial pose setting (from last mapping position)
+  - RViz2 goal subscription (2D Goal Pose and Publish Point)
+  - Dynamic obstacle avoidance using LiDAR
+  
+- **Delivery Management**:
+  - Delivery request queue
+  - Delivery logging to `/tmp/delivery_robot_log.txt`
+  - Tracks completed deliveries
+  
+- **Route Management**: Waypoint-based navigation support (configurable)
 
 ---
 
@@ -283,10 +404,12 @@ ros2 launch turtlebot3_navigation2 navigation2.launch.py
 | **Sensors Used** | Camera + LiDAR + Odometry | LiDAR + Odometry |
 | **Navigation Method** | Right-hand wall following | Navigation2 (Nav2) |
 | **Purpose** | Detect damage sites (ArUco markers) | Deliver packages to locations |
-| **Mapping** | Required for localization | Required for path planning |
+| **Mapping** | Optional (via Mapping Mode) | Built-in Mapping Mode (3 min auto-explore) |
 | **Camera** | ✅ Required (ArUco detection) | ❌ Not used |
-| **Battery Management** | ✅ Automatic homing | ❌ Not implemented |
-| **Output** | Damage log file | Delivery log file |
+| **Battery Management** | ✅ Automatic homing (if enabled) | ❌ Not implemented |
+| **Initial Pose** | Manual or automatic (via mode) | Automatic (from last mapping position) |
+| **Output** | Damage log file (`/tmp/inspection_log.txt`) | Delivery log file (`/tmp/delivery_robot_log.txt`) |
+| **Entry Point** | Mode Selector or manual launch | Mode Selector (recommended) |
 
 ---
 
@@ -337,11 +460,53 @@ ros2 launch turtlebot3_navigation2 navigation2.launch.py
 
 ### Polymorphic Design
 
-The system demonstrates polymorphism through:
-- **Shared base functionality**: Wall following, battery management, basic motion
-- **Specialized behaviors**: 
-  - Inspection: ArUco detection and damage logging
-  - Delivery: Nav2 path planning and route management
+The system demonstrates **object-oriented polymorphism** through:
+
+#### Class Hierarchy
+```
+BaseRobot (Abstract Base Class)
+    ├── InspectionRobot (Derived Class)
+    └── DeliveryRobot (Derived Class)
+```
+
+#### Key Polymorphic Features:
+
+1. **Virtual Interface**:
+   - `BaseRobot` defines pure virtual functions: `initialize()` and `run()`
+   - Each derived class implements these differently
+   - Same function call (`robot->initialize()`) executes different code based on object type
+
+2. **Shared Base Functionality**:
+   - Motion control (`publishVelocity`, `stopRobot`)
+   - Battery monitoring (`getBatteryLevel`)
+   - Odometry tracking
+   - All robots use the same base implementations
+
+3. **Specialized Behaviors**:
+   - **InspectionRobot**: ArUco detection, wall following, damage logging
+   - **DeliveryRobot**: Navigation2 integration, mapping mode, delivery queue
+
+4. **Runtime Polymorphism**:
+   ```cpp
+   std::shared_ptr<BaseRobot> robot;
+   
+   // User selects robot type at runtime
+   if (choice == 1) {
+       robot = std::make_shared<InspectionRobot>(mode);
+   } else {
+       robot = std::make_shared<DeliveryRobot>(mapping_mode);
+   }
+   
+   // Same interface, different behavior
+   robot->initialize();  // Calls InspectionRobot::initialize() OR DeliveryRobot::initialize()
+   robot->run();          // Calls InspectionRobot::run() OR DeliveryRobot::run()
+   ```
+
+5. **Benefits**:
+   - Single code path handles multiple robot types
+   - Easy to extend with new robot types
+   - Clean separation of shared vs. specialized functionality
+   - Runtime type selection based on user input
 
 ### Code Organization
 
@@ -353,7 +518,7 @@ The system demonstrates polymorphism through:
 
 ## Authors
 
-Aditya Soalnki
+Aditya Solanki
 ## License
 
 [Your License - MIT/Apache/etc.]
@@ -378,18 +543,43 @@ This project fulfills the MTRX3760 Project 2 requirements:
 
 ## Quick Reference
 
-### Inspection Mode (One-Line Launch)
+### Unified Interface (Recommended)
 ```bash
+# Terminal 1: Robot hardware/simulation
+ros2 launch turtlebot3_bringup robot.launch.py
+
+# Terminal 2: Mode selector (interactive menu)
+ros2 run mode_selector robot_mode_selector
+```
+
+### Inspection Mode
+```bash
+# Via mode selector (select Inspection Robot + desired mode)
+ros2 run mode_selector robot_mode_selector
+
+# Or manually:
 ros2 launch robot_drive low_battery_homing.launch.py
 ```
 
-### Delivery Mode (One-Line Launch)
+### Delivery Mode - Mapping
+```bash
+# Via mode selector (select Delivery Robot + Mapping Mode)
+ros2 run mode_selector robot_mode_selector
+
+# Mapping completes in 3 minutes, then choose "Start Delivery Mode"
+```
+
+### Delivery Mode - Direct Navigation
 ```bash
 # Terminal 1: Robot
 ros2 launch turtlebot3_bringup robot.launch.py
 
-# Terminal 2: Navigation2
-ros2 launch turtlebot3_navigation2 navigation2.launch.py
+# Terminal 2: Navigation2 with map
+ros2 launch turtlebot3_navigation2 navigation2.launch.py map:=/path/to/map
+
+# Terminal 3: Delivery robot
+ros2 run mode_selector robot_mode_selector
+# Select: Delivery Robot, None mode
 ```
 
 ### Individual Nodes
