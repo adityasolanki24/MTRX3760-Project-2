@@ -1,3 +1,9 @@
+/ MTRX3760 2025 Project 2: Warehouse Robot DevKit 
+// File: low_battery_homing
+// Author(s): Raquel Kampel
+// 
+// returns the robot home (aruco tag id = 0 ) when battery falls below 20%
+
 #include "robot_drive/low_battery_homing.hpp"
 
 LowBatteryHoming::LowBatteryHoming()

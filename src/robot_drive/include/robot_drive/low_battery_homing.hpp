@@ -1,3 +1,9 @@
+// MTRX3760 2025 Project 2: Warehouse Robot DevKit 
+// File: low_battery_homing
+// Author(s): Raquel Kampel
+// 
+// Header file to return turtlebot to id0 when low battery
+
 #ifndef LOW_BATTERY_HOMING_HPP
 #define LOW_BATTERY_HOMING_HPP
 
