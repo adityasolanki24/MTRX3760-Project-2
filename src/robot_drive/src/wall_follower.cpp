@@ -1,8 +1,3 @@
-/*
- * Right-Hand Wall Following Algorithm for Real TurtleBot3
- * C++ implementation for ROS 2 with PID Control
- */
-
 #include "wall_follower/wall_follower.hpp"
 
 #include <algorithm>
@@ -70,23 +65,23 @@ void RightHandWallFollower::PIDController::reset()
 
 RightHandWallFollower::RightHandWallFollower()
 : Node("right_hand_wall_follower"),
-  linear_speed_(0.1),
-  angular_speed_(0.4),
-  corner_angular_speed_(1.0),
-  desired_wall_distance_(0.25),
-  front_threshold_(0.25),
+  linear_speed_(0.15),
+  angular_speed_(0.25),
+  corner_angular_speed_(0.6),
+  desired_wall_distance_(0.15),
+  front_threshold_(0.35),
   side_threshold_(0.35),
   min_obstacle_distance_(0.25),
   corner_clearance_(0.35),
   state_("FINDING_WALL"),
   wall_found_(false),
   right_turn_counter_(0),
+  aruco_stop_flag_(false),
   last_scan_time_(this->now())
 {
     // Initialize PID controller for wall following
-    // Tuned gains for 20cm distance: Kp=2.0, Ki=0.05, Kd=1.0, max_output=angular_speed
-    // Lower Kp = less aggressive, Higher Kd = more damping, Lower Ki = less windup
-    wall_pid_ = std::make_unique<PIDController>(2.0, 0.05, 1.0, angular_speed_);
+    // Gentler, more damped gains to reduce bouncing
+    wall_pid_ = std::make_unique<PIDController>(0.70, 0.05, 1.75, angular_speed_);
     
     // QoS Profile for LiDAR - MUST use BEST_EFFORT to match sensor
     auto qos = rclcpp::QoS(rclcpp::KeepLast(10));
@@ -102,8 +97,8 @@ RightHandWallFollower::RightHandWallFollower()
     RCLCPP_INFO(this->get_logger(), "============================================================");
     RCLCPP_INFO(this->get_logger(), "Linear speed: %.2f m/s", linear_speed_);
     RCLCPP_INFO(this->get_logger(), "Angular speed: %.2f rad/s (corners: %.2f)", angular_speed_, corner_angular_speed_);
-    RCLCPP_INFO(this->get_logger(), "Target wall distance: %.2f m (20cm)", desired_wall_distance_);
-    RCLCPP_INFO(this->get_logger(), "PID Gains: Kp=2.0, Ki=0.05, Kd=1.0 (SMOOTH TUNING)");
+    RCLCPP_INFO(this->get_logger(), "Target wall distance: %.2f m (25cm)", desired_wall_distance_);
+    RCLCPP_INFO(this->get_logger(), "PID Gains: Kp=0.7, Ki=0.05, Kd=2.0 (damped)");
     RCLCPP_INFO(this->get_logger(), "============================================================");
     RCLCPP_INFO(this->get_logger(), "SAFETY: Press Ctrl+C to emergency stop!");
     RCLCPP_INFO(this->get_logger(), "============================================================");
@@ -188,10 +183,10 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
         right_turn_counter_ = 0;  // Reset turn sequence counter
         RCLCPP_WARN(this->get_logger(), "EMERGENCY! Obstacle at %.2fm", distances.front);
     }
-    // PRIORITY 2: Obstacle ahead AND right wall - CORNER! Turn left SHARP
+    // PRIORITY 2: Obstacle ahead AND right wall - Sharp Turn left
     else if (distances.front < front_threshold_ && distances.right < side_threshold_) {
         state_ = "CORNER_LEFT";
-        cmd.twist.linear.x = 0.0;  // STOP completely - no forward motion for sharp turn
+        cmd.twist.linear.x = 0.0;  // STOP completely 
         cmd.twist.angular.z = corner_angular_speed_;
         wall_pid_->reset();  // Reset PID during corner turn
         right_turn_counter_ = 0;  // Reset turn sequence counter
@@ -199,7 +194,7 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
                    distances.front, distances.right);
         wall_found_ = true;
     }
-    // PRIORITY 3: Obstacle ahead - Turn left SHARP
+    // PRIORITY 3: Obstacle ahead - Sharp turn left
     else if (distances.front < front_threshold_) {
         state_ = "TURNING_LEFT";
         cmd.twist.linear.x = 0.0;  // STOP completely for sharp turn
@@ -219,34 +214,49 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
         RCLCPP_INFO(this->get_logger(), "Front-right obstacle (%.2fm) - Adjust left", distances.front_right);
         wall_found_ = true;
     }
-    // PRIORITY 5: Wall on right - Follow it using PID CONTROL
+    // PRIORITY 5: Wall on right - Follow with PID CONTROL
     else if (distances.right < side_threshold_) {
         wall_found_ = true;
         right_turn_counter_ = 0;  // Reset counter when wall is detected
         state_ = "FOLLOWING_PID";
         
-        // Calculate error: positive = too far, negative = too close
+        // Calculate error: positive = too far,negative = too close
         double error = distances.right - desired_wall_distance_;
+        // Deadband (real robot wider due to noise)
+        if (std::fabs(error) < 0.04) {
+            error = 0.0;
+        }
         
-        // Use PID to calculate angular velocity correction
+        // PID to calculate angular velocity correction
         double angular_correction = -wall_pid_->calculate(error, dt);  // Negative to turn toward wall
+
+        // Exponential smoothing and rate limiting to avoid jitter
+        static double prev_angular_cmd = 0.0;
+        const double alpha = 0.4;  // smoothing factor
+        double smoothed = alpha * angular_correction + (1.0 - alpha) * prev_angular_cmd;
+        const double max_delta = 0.15;  // max change per cycle
+        double delta = smoothed - prev_angular_cmd;
+        if (delta > max_delta) smoothed = prev_angular_cmd + max_delta;
+        if (delta < -max_delta) smoothed = prev_angular_cmd - max_delta;
+        prev_angular_cmd = smoothed;
         
         // Set forward speed (reduce if large correction needed)
-        double speed_factor = 1.0 - std::min(0.4, std::abs(angular_correction) / angular_speed_);
+        double speed_factor = 1.0 - std::min(0.6, std::abs(angular_correction) / angular_speed_);
+        speed_factor = std::clamp(speed_factor, 0.25, 1.0);
         cmd.twist.linear.x = linear_speed_ * speed_factor;
-        cmd.twist.angular.z = angular_correction;
+        cmd.twist.angular.z = prev_angular_cmd;
         
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
             "PID Control: dist=%.2fm, error=%.3fm, angular=%.2f rad/s", 
             distances.right, error, angular_correction);
     }
-    // PRIORITY 6: No wall on right - Turn-Forward sequence
+    // PRIORITY 6: No wall on right - Turn-Forward-Turn sequence
     else {
         wall_pid_->reset();  // Reset PID when no wall detected
         
-        // If we've found a wall before, this is an opening - execute turn-forward sequence
+        // If we've found a wall before, execute turn-forward-turn sequence
         if (wall_found_) {
-            // Phase 1: Turn right (first 8 cycles)
+            // Phase 1: Turn right
             if (right_turn_counter_ < 8) {
                 state_ = "TURNING_RIGHT_OPENING";
                 cmd.twist.linear.x = 0.0;  // STOP while turning for sharp turn
@@ -254,7 +264,7 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
                 right_turn_counter_++;
                 RCLCPP_INFO(this->get_logger(), "Opening! Phase 1: Turning right (count: %d)", right_turn_counter_);
             }
-            // Phase 2: Drive forward (cycles 8-20)
+            // Phase 2: Drive forward
             else if (right_turn_counter_ < 20) {
                 state_ = "DRIVING_FORWARD_AFTER_TURN";
                 cmd.twist.linear.x = linear_speed_;  // Full speed forward
@@ -262,7 +272,7 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
                 right_turn_counter_++;
                 RCLCPP_INFO(this->get_logger(), "Opening! Phase 2: Driving forward (count: %d)", right_turn_counter_);
             }
-            // Phase 3: Turn right again (cycles 20-25)
+            // Phase 3: Turn right again
             else if (right_turn_counter_ < 25) {
                 state_ = "TURNING_RIGHT_SECOND";
                 cmd.twist.linear.x = 0.0;  // Stop while turning
@@ -270,7 +280,7 @@ void RightHandWallFollower::scan_callback(const sensor_msgs::msg::LaserScan::Sha
                 right_turn_counter_++;
                 RCLCPP_INFO(this->get_logger(), "Opening! Phase 3: Turning right again (count: %d)", right_turn_counter_);
             }
-            // Phase 4: Drive forward until wall detected (cycles 25+)
+            // Phase 4: Drive forward until wall detected
             else {
                 state_ = "SEEKING_WALL_FORWARD";
                 cmd.twist.linear.x = linear_speed_;  // Full speed forward

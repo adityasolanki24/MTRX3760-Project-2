@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(robot_drive)
+project(delivery_commander)
 
 # Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
@@ -13,10 +13,13 @@ endif()
 # Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(nav2_msgs REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 
 # Include directories
@@ -24,39 +27,32 @@ include_directories(
   include
 )
 
-# C++ executable - Original wall follower
-add_executable(wall_follower src/wall_follower.cpp)
-ament_target_dependencies(wall_follower
+# C++ executable - Delivery Commander
+add_executable(delivery_commander src/delivery_commander.cpp)
+ament_target_dependencies(delivery_commander
   rclcpp
-  sensor_msgs
-  geometry_msgs
   std_msgs
+  geometry_msgs
+)
+
+# C++ executable - Delivery Navigator
+add_executable(delivery_navigator src/delivery_navigator.cpp)
+ament_target_dependencies(delivery_navigator
+  rclcpp
+  std_msgs
+  geometry_msgs
+  nav_msgs
+  nav2_msgs
+  rclcpp_action
   tf2
+  tf2_geometry_msgs
   tf2_ros
-)
-
-# C++ executable - Home detection with ArUco
-add_executable(home_detection src/home_detection.cpp)
-ament_target_dependencies(home_detection
-  rclcpp
-  sensor_msgs
-  geometry_msgs
-  std_msgs
-)
-
-# C++ executable - Low battery homing
-add_executable(low_battery_homing src/low_battery_homing.cpp)
-ament_target_dependencies(low_battery_homing
-  rclcpp
-  std_msgs
-  geometry_msgs
 )
 
 # Install executables
 install(TARGETS
-  wall_follower
-  home_detection
-  low_battery_homing
+  delivery_commander
+  delivery_navigator
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -66,3 +62,5 @@ install(DIRECTORY include/
 )
 
 ament_package()
+
+

@@ -2,11 +2,32 @@
 <package format="3">
   <name>mode_selector</name>
   <version>0.0.1</version>
-  <description>Launch selector for warehouse robot modes</description>
-  <maintainer email="raquel@example.com">Raquel Kampel</maintainer>
+  <description>Polymorphic warehouse robot system - unified entry point for inspection and delivery robots</description>
+  <maintainer email="team@example.com">Project Team</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
-  <exec_depend>rclcpp</exec_depend>
-  <exec_depend>std_msgs</exec_depend>
+
+  <!-- Core ROS 2 dependencies -->
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  
+  <!-- TF2 for coordinate transforms -->
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+  
+  <!-- Navigation2 for delivery robot -->
+  <depend>rclcpp_action</depend>
+  <depend>nav2_msgs</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>
