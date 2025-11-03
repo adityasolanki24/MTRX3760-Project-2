@@ -32,3 +32,8 @@ Thumbs.db
 *.bak
 *.orig
 
+# Turtlebot3 packages (should be installed separately)
+src/turtlebot3/
+src/turtlebot3_msgs/
+src/turtlebot3_simulations/
+
