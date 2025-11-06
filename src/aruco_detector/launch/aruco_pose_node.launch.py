@@ -1,3 +1,11 @@
+# MTRX3760 2025 Project 2: Warehouse Robot DevKit
+# File: aruco_pose_node_param.launch.py
+# Author(s): Raquel Kampel
+#
+# Launch file for the ArucoPoseNode, which detects ArUco markers and publishes
+# their estimated poses. This version allows configurable parameters such as
+# marker length, camera frame, dictionary type, and topic names.
+
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.substitutions import LaunchConfiguration
