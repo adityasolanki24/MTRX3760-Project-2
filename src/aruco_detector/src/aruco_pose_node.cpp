@@ -1,3 +1,10 @@
+// MTRX3760 2025 Project 2: Warehouse Robot DevKit 
+// File: aruco_pose_node.cpp
+// Author(s): Raquel Kampel 
+//
+// Implements the ArucoPoseNode class, which detects individual ArUco markers,
+// estimates their 3D poses, and publishes each marker’s pose and transform.
+
 #include "aruco_detector/aruco_pose_node.hpp"
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
