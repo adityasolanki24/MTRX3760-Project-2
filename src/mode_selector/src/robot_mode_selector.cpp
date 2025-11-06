@@ -1,6 +1,6 @@
 // MTRX3760 2025 Project 2: Warehouse Robot DevKit
 // File: robot_mode_selector.cpp
-// Author(s): Racquel Kampel
+// Author(s): Raquel Kampel
 //
 // Unified entry point for warehouse robot system.
 // Demonstrates polymorphism: creates appropriate robot type based on user selection.
