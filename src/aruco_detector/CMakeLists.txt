@@ -1,3 +1,9 @@
+# MTRX3760 2025 Project 2: Warehouse Robot DevKit 
+# File: CMakeLists.txt
+# Author(s): Raquel Kampel 
+#
+# Builds ArucoPoseNode and shared ArucoBase class for ROS 2 detection system.
+
 cmake_minimum_required(VERSION 3.16)
 project(aruco_detector)
 
@@ -13,39 +19,19 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(OpenCV 4 REQUIRED COMPONENTS core imgproc calib3d highgui aruco)
 find_package(visualization_msgs REQUIRED)
 
-add_executable(aruco_detector_node src/aruco_detector_node.cpp)
+include_directories(include)
 
-target_include_directories(aruco_detector_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-)
-
-ament_target_dependencies(aruco_detector_node
-  rclcpp sensor_msgs geometry_msgs cv_bridge image_transport tf2 tf2_ros tf2_geometry_msgs visualization_msgs)
-
-target_link_libraries(aruco_detector_node ${OpenCV_LIBS})
-target_compile_features(aruco_detector_node PRIVATE cxx_std_17)
-
-add_executable(aruco_pose_node src/aruco_pose_node.cpp)
-
-target_include_directories(aruco_pose_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
+add_executable(aruco_pose_node 
+  src/aruco_pose_node.cpp
+  src/aruco_base.cpp
 )
 
 ament_target_dependencies(aruco_pose_node
   rclcpp sensor_msgs geometry_msgs cv_bridge image_transport tf2 tf2_ros tf2_geometry_msgs)
-
 target_link_libraries(aruco_pose_node ${OpenCV_LIBS})
 target_compile_features(aruco_pose_node PRIVATE cxx_std_17)
 
-install(TARGETS aruco_detector_node aruco_pose_node
+install(TARGETS aruco_pose_node
   DESTINATION lib/${PROJECT_NAME})
-
-install(DIRECTORY launch params
-  DESTINATION share/${PROJECT_NAME})
-
-install(DIRECTORY include/
-  DESTINATION include)
-
+install(DIRECTORY include/ DESTINATION include)
 ament_package()
