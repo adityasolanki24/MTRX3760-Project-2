@@ -1,3 +1,11 @@
+// MTRX3760 2025 Project 2: Warehouse Robot DevKit 
+// File: aruco_base.hpp
+// Author(s): Raquel Kampel 
+//
+// Base class providing shared ArUco detection and camera calibration functionality.
+// Implements encapsulation of OpenCV and ROS2 internals, and defines a polymorphic
+// interface for derived detector nodes.
+
 #ifndef ARUCO_DETECTOR_ARUCO_BASE_HPP
 #define ARUCO_DETECTOR_ARUCO_BASE_HPP
 
@@ -14,45 +22,21 @@
 
 class ArucoBase : public rclcpp::Node {
 public:
-  explicit ArucoBase(const std::string &node_name)
-      : Node(node_name), have_camera_(false) {
-    params_ = cv::aruco::DetectorParameters::create();
-  }
-
-  virtual ~ArucoBase() = default;
+  explicit ArucoBase(const std::string &node_name);
+  virtual ~ArucoBase();
 
 protected:
-  // --- Common Camera Info Callback ---
-  void cameraInfoCb(const sensor_msgs::msg::CameraInfo::ConstSharedPtr msg) {
-    if (have_camera_)
-      return;
-    K_ = cv::Mat(3, 3, CV_64F);
-    for (int i = 0; i < 9; ++i)
-      K_.at<double>(i / 3, i % 3) = msg->k[i];
-    D_ = cv::Mat(static_cast<int>(msg->d.size()), 1, CV_64F);
-    for (size_t i = 0; i < msg->d.size(); ++i)
-      D_.at<double>(static_cast<int>(i), 0) = msg->d[i];
-    have_camera_ = true;
-    RCLCPP_INFO(get_logger(), "Camera intrinsics received (K, D).");
-  }
+  // --- Shared Callbacks ---
+  void cameraInfoCb(const sensor_msgs::msg::CameraInfo::ConstSharedPtr msg);
 
-  // --- Helper: Get dictionary by name ---
-  static cv::Ptr<cv::aruco::Dictionary> getDictionaryByName(const std::string &name) {
-    using namespace cv::aruco;
-    static const std::unordered_map<std::string, PREDEFINED_DICTIONARY_NAME> lut = {
-        {"DICT_4X4_50", DICT_4X4_50}, {"DICT_5X5_50", DICT_5X5_50},
-        {"DICT_6X6_50", DICT_6X6_50}, {"DICT_7X7_50", DICT_7X7_50},
-        {"DICT_ARUCO_ORIGINAL", DICT_ARUCO_ORIGINAL}};
-    auto it = lut.find(name);
-    return cv::aruco::getPredefinedDictionary(
-        it == lut.end() ? DICT_5X5_50 : it->second);
-  }
+  // --- Shared Helper ---
+  static cv::Ptr<cv::aruco::Dictionary> getDictionaryByName(const std::string &name);
 
   // --- Pure virtual to enforce polymorphism ---
   virtual void processImage(const cv::Mat &frame,
                             const std_msgs::msg::Header &header) = 0;
 
-  // --- Shared members for derived classes ---
+  // --- Shared members ---
   bool have_camera_;
   cv::Mat K_, D_;
   cv::Ptr<cv::aruco::Dictionary> dict_;
@@ -60,5 +44,3 @@ protected:
 };
 
 #endif  // ARUCO_DETECTOR_ARUCO_BASE_HPP
-
-
