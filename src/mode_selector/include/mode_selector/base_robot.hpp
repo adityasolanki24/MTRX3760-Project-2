@@ -1,6 +1,6 @@
 // MTRX3760 2025 Project 2: Warehouse Robot DevKit
 // File: base_robot.hpp
-// Author(s): Project Team
+// Author(s): Aditya Solanki
 //
 // Abstract base class for warehouse robots. Provides shared functionality:
 // - Basic motion control (differential drive)
