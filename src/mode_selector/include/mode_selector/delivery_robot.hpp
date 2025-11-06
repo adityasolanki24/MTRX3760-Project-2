@@ -1,6 +1,6 @@
 // MTRX3760 2025 Project 2: Warehouse Robot DevKit
 // File: delivery_robot.hpp
-// Author(s): Project Team
+// Author(s): Aditya Solanki
 //
 // Delivery robot implementation. Inherits from BaseRobot and adds:
 // - Navigation2 integration for SLAM-based navigation
