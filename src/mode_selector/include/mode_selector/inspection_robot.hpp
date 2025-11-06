@@ -1,6 +1,6 @@
 // MTRX3760 2025 Project 2: Warehouse Robot DevKit
 // File: inspection_robot.hpp
-// Author(s): Project Team
+// Author(s): Aditya Solanki
 //
 // Inspection robot implementation. Inherits from BaseRobot and adds:
 // - Camera-based ArUco marker detection for damage sites
