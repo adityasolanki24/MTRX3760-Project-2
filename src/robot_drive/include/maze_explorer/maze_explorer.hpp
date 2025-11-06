@@ -1,6 +1,6 @@
 // MTRX3760 2025 Project 2: Warehouse Robot DevKit
 // File: maze_explorer.hpp
-// Author(s): Project Team
+// Author(s): Aditya Solanki
 //
 // Tremaux Algorithm-based maze exploration with topological mapping.
 // Systematically explores maze, detects intersections, and builds a map
