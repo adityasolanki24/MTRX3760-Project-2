@@ -1,8 +1,18 @@
+# MTRX3760 2025 Project 2: Warehouse Robot DevKit
+# File: aruco_pose_node.launch.py
+# Author(s): Raquel Kampel
+#
+# Launch file for the ArucoPoseNode and WallFollowerNode.
+# The ArucoPoseNode performs ArUco marker pose estimation using
+# camera image and camera info topics, while the WallFollowerNode
+# handles wall-following navigation.
+
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
 def generate_launch_description():
-    aruco_node = Node(
+    # --- Aruco Pose Node ---
+    aruco_pose_node = Node(
         package='aruco_detector',
         executable='aruco_pose_node',
         name='aruco_pose_node',
@@ -11,12 +21,15 @@ def generate_launch_description():
             {'marker_length': 0.05},
             {'camera_frame': 'camera_optical_frame'},
             {'publish_tf': True},
+            {'debug_image': True},
+            {'pose_topic_base': '/aruco/pose'},
+            {'dictionary': 'DICT_5X5_50'},
             {'camera_info_topic': '/camera/camera_info'},
-            {'image_topic': '/camera/image_raw'},
-            {'log_file': '/home/raquel/turtlebot3_ws/crack_log.txt'}
+            {'image_topic': '/camera/image_raw'}
         ]
     )
 
+    # --- Wall Follower Node ---
     wall_follower_node = Node(
         package='robot_drive',
         executable='wall_follower',
@@ -29,4 +42,8 @@ def generate_launch_description():
         ]
     )
 
-    return LaunchDescription([aruco_node, wall_follower_node])
+    # --- Launch both nodes ---
+    return LaunchDescription([
+        aruco_pose_node,
+        wall_follower_node
+    ])
