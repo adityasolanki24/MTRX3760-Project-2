@@ -1,6 +1,6 @@
 // MTRX3760 2025 Project 2: Warehouse Robot DevKit
 // File: base_robot.cpp
-// Author(s): Project Team
+// Author(s): Aditya Solanki
 //
 // Implementation of BaseRobot class - shared functionality for all robot types.
 
