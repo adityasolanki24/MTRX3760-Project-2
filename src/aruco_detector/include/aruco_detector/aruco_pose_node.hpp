@@ -1,3 +1,10 @@
+// MTRX3760 2025 Project 2: Warehouse Robot DevKit 
+// File: aruco_pose_node.hpp
+// Author(s): Raquel Kampel 
+//
+// Derived node implementing ArUco marker pose estimation using OpenCV.
+// Inherits from ArucoBase to utilize shared detection and camera calibration logic.
+
 #ifndef ARUCO_DETECTOR_ARUCO_POSE_NODE_HPP
 #define ARUCO_DETECTOR_ARUCO_POSE_NODE_HPP
 
