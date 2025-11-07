@@ -32,9 +32,7 @@
     #define clear_screen() system("clear")
 #endif
 
-// =============================
 // Process Management
-// =============================
 
 std::vector<pid_t> child_processes;
 
@@ -76,9 +74,8 @@ pid_t launch_node(const std::string& command) {
     }
 }
 
-// =============================
 // Helper Functions
-// =============================
+
 
 /**
  * @brief Find the most recent map file in the home directory
@@ -127,9 +124,8 @@ std::string findLastSavedMap() {
     return map_files[0].first;  // Return most recent
 }
 
-// =============================
+
 // Selection Functions
-// =============================
 
 int select_robot_type() {
     int choice = 0;
@@ -165,9 +161,9 @@ int select_mode() {
     return choice;
 }
 
-// =============================
-// Main Entry Point
-// =============================
+
+// Main Function
+
 
 int main(int argc, char** argv) {
     clear_screen();
@@ -288,10 +284,9 @@ int main(int argc, char** argv) {
         launch_node(battery_cmd);
         sleep(1); // Give node time to start
     }
-    
-    // =============================
+
     // Polymorphic Instantiation
-    // =============================
+   
     
     // Base class shared pointer - demonstrates polymorphism
     std::shared_ptr<mode_selector::BaseRobot> robot;
