@@ -1,5 +1,5 @@
 
-/ MTRX3760 2025 Project 2: Warehouse Robot DevKit 
+// MTRX3760 2025 Project 2: Warehouse Robot DevKit 
 // File: home_detection.cpp 
 // Author(s): Aditya Solanki
 // 
