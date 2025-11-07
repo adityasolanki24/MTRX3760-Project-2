@@ -1,3 +1,15 @@
+// MTRX3760 2025 Project 2: Warehouse Robot DevKit
+// File: battery_monitor.hpp
+// Author: Raquel Kampel
+//
+// Description:
+//   C++ file file for the BatteryMonitorNode class.
+//   This node simulates or reads the robot’s battery percentage and
+//   publishes it to the /battery/level topic as a std_msgs::msg::Float32.
+//
+//   By default, the node simulates a slow discharge (Option 2).
+//   For real hardware integration, you can adapt it to read values
+//   from a CSV file, ADC, or other sensor input.
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <fstream>
