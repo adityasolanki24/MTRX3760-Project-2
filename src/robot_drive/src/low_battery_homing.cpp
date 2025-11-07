@@ -1,4 +1,4 @@
-/ MTRX3760 2025 Project 2: Warehouse Robot DevKit 
+// MTRX3760 2025 Project 2: Warehouse Robot DevKit 
 // File: low_battery_homing
 // Author(s): Raquel Kampel
 // 
