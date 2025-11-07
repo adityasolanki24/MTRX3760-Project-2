@@ -1,3 +1,14 @@
+// MTRX3760 2025 Project 2: Warehouse Robot DevKit
+// File: wall_follower.hpp
+// Author(s): Christopher Krsevan
+//
+// This node implements a right-hand wall following algorithm for a TurtleBot3 robot.
+// It processes LiDAR data to populate a small set of directional ranges (front, right,
+// front-right, left) and applies a PID-controlled state machine to stay ~15 cm from the
+// right wall. The controller prioritises safety (emergency stop), sharp cornering, and a
+// multi-phase right-turn sequence when an opening appears. Additional smoothing and rate
+// limiting ensure the robot remains stable on real hardware.
+
 #include "wall_follower/wall_follower.hpp"
 
 #include <algorithm>
